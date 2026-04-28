@@ -128,6 +128,9 @@ class CodeModelStore:
     def rpcs_by_package(self, package: str) -> list[Row]:
         return self._by("rpcs.tsv", "package").get(package, [])
 
+    def all_rpcs(self) -> list[Row]:
+        return self._load("rpcs.tsv")
+
     # ── options.tsv ────────────────────────────────────────────────
 
     def options_in_routine(self, routine: str) -> list[Row]:
@@ -139,6 +142,9 @@ class CodeModelStore:
 
     def options_by_package(self, package: str) -> list[Row]:
         return self._by("options.tsv", "package").get(package, [])
+
+    def all_options(self) -> list[Row]:
+        return self._load("options.tsv")
 
     # ── routine-globals.tsv (reverse) ──────────────────────────────
 

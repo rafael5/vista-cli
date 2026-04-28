@@ -6,18 +6,20 @@ from typing import Any
 
 import click
 
+from vista_cli.completion import complete_file
 from vista_cli.config import Config
 from vista_cli.format import json_out, tsv_out
 from vista_cli.stores.code_model import CodeModelStore
 from vista_cli.stores.data_model import DataModelStore
 from vista_cli.stores.doc_model import DocModelStore
+from vista_cli.suggestions import did_you_mean
 
 _TOP_ROUTINES = 25
 _DOC_TSV_COLUMNS = ("doc_id", "doc_type", "app_code", "patch_id", "title", "rel_path")
 
 
 @click.command()
-@click.argument("number")
+@click.argument("number", shell_complete=complete_file)
 @click.option(
     "--format",
     "fmt",
@@ -40,6 +42,18 @@ def file(
     row = dms_data.file(number)
     if row is None:
         click.echo(f"File '{number}' not found in files.tsv.", err=True)
+        all_files = dms_data.all_files()
+        suggestions = did_you_mean(
+            number, [f.get("file_number", "") for f in all_files]
+        )
+        if suggestions:
+            # Annotate each suggested number with its file name for context.
+            by_num = {
+                f.get("file_number", ""): f.get("file_name", "")
+                for f in all_files
+            }
+            labelled = [f"{n} ({by_num.get(n, '?')})" for n in suggestions]
+            click.echo(f"Did you mean: {', '.join(labelled)}?", err=True)
         ctx.exit(1)
         return
 

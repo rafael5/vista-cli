@@ -7,14 +7,16 @@ from typing import Any
 import click
 
 from vista_cli.canonical import resolve_package
+from vista_cli.completion import complete_routine
 from vista_cli.config import Config
 from vista_cli.format import json_out, markdown
 from vista_cli.stores.code_view import make_code_view
 from vista_cli.stores.doc_model import DocModelStore
+from vista_cli.suggestions import did_you_mean
 
 
 @click.command()
-@click.argument("name")
+@click.argument("name", shell_complete=complete_routine)
 @click.option(
     "--format",
     "fmt",
@@ -39,15 +41,26 @@ def routine(
     """Show code facts and documentation refs for a routine."""
     cfg: Config = ctx.obj["config"]
     allow_cache = ctx.obj.get("allow_cache", True)
+    view = make_code_view(
+        code_model_dir=cfg.code_model_dir,
+        cache_db=cfg.cache_db,
+        doc_db=cfg.doc_db,
+        allow_cache=allow_cache,
+    )
     info = _build_info(
+        view,
         name,
         cfg,
         with_docs=not no_docs,
         latest_only=not all_versions,
-        allow_cache=allow_cache,
     )
     if info is None:
         click.echo(f"Routine '{name}' not found in code-model TSVs.", err=True)
+        suggestions = did_you_mean(
+            name, [r.get("routine_name", "") for r in view.all_routines()]
+        )
+        if suggestions:
+            click.echo(f"Did you mean: {', '.join(suggestions)}?", err=True)
         ctx.exit(1)
         return
 
@@ -58,19 +71,13 @@ def routine(
 
 
 def _build_info(
+    view,
     name: str,
     cfg: Config,
     *,
     with_docs: bool,
     latest_only: bool = True,
-    allow_cache: bool = True,
 ) -> dict[str, Any] | None:
-    view = make_code_view(
-        code_model_dir=cfg.code_model_dir,
-        cache_db=cfg.cache_db,
-        doc_db=cfg.doc_db,
-        allow_cache=allow_cache,
-    )
     row = view.routine(name)
     if row is None:
         return None

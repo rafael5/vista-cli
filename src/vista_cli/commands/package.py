@@ -6,18 +6,20 @@ from typing import Any
 
 import click
 
-from vista_cli.canonical import resolve_package
+from vista_cli.canonical import all_packages, resolve_package
+from vista_cli.completion import complete_package
 from vista_cli.config import Config
 from vista_cli.format import json_out, tsv_out
 from vista_cli.stores.code_model import CodeModelStore
 from vista_cli.stores.doc_model import DocModelStore
+from vista_cli.suggestions import did_you_mean
 
 _TOP_ROUTINES = 25
 _DOC_TSV_COLUMNS = ("doc_id", "doc_type", "app_code", "patch_id", "title", "rel_path")
 
 
 @click.command()
-@click.argument("name")
+@click.argument("name", shell_complete=complete_package)
 @click.option(
     "--format",
     "fmt",
@@ -45,6 +47,18 @@ def package(
 
     if pkg_row is None and not routines and not pkg_id:
         click.echo(f"Package '{name}' not found in canonical map or TSVs.", err=True)
+        # Build candidates from canonical packages + every distinct
+        # directory / ns / app_code so any one of them resolves.
+        canonical = list(all_packages())
+        candidates = sorted(
+            {p.directory for p in canonical}
+            | {p.ns for p in canonical}
+            | {p.app_code for p in canonical}
+            | {r.get("package", "") for r in cms.all_routines() if r.get("package")}
+        )
+        suggestions = did_you_mean(name, candidates)
+        if suggestions:
+            click.echo(f"Did you mean: {', '.join(suggestions)}?", err=True)
         ctx.exit(1)
         return
 

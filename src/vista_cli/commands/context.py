@@ -15,6 +15,7 @@ from vista_cli.commands.routine import _build_info
 from vista_cli.config import Config
 from vista_cli.format import markdown
 from vista_cli.stores.code_model import CodeModelStore
+from vista_cli.stores.code_view import make_code_view
 from vista_cli.stores.doc_model import DocModelStore
 
 _DEFAULT_BUDGET = 200_000
@@ -34,7 +35,12 @@ def _bundle(
         parts.append(f"# Question\n\n{question}\n")
 
     if routine:
-        info = _build_info(routine, cfg, with_docs=True, latest_only=True)
+        view = make_code_view(
+            code_model_dir=cfg.code_model_dir,
+            cache_db=cfg.cache_db,
+            doc_db=cfg.doc_db,
+        )
+        info = _build_info(view, routine, cfg, with_docs=True, latest_only=True)
         if info is not None:
             parts.append(markdown.render_routine(info))
             parts.append(_doc_sections_for_routine(cfg, routine))

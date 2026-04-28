@@ -282,6 +282,48 @@ export VISTA_M_HOST=/path/to/VistA-M-host
 The defaults in `config.py` match the single-user setup documented
 in the project's CLAUDE.md.
 
+### 2.1 Shell completion (optional)
+
+`vista` ships with Click-powered tab-completion for routine, package,
+RPC, option, and file-number arguments. Install once per shell:
+
+```bash
+# bash
+_VISTA_COMPLETE=bash_source vista > ~/.local/share/vista-completion.bash
+echo 'source ~/.local/share/vista-completion.bash' >> ~/.bashrc
+
+# zsh
+_VISTA_COMPLETE=zsh_source vista > ~/.local/share/vista-completion.zsh
+echo 'source ~/.local/share/vista-completion.zsh' >> ~/.zshrc
+
+# fish
+_VISTA_COMPLETE=fish_source vista > ~/.config/fish/completions/vista.fish
+```
+
+After reloading your shell, `vista routine PRC<TAB>` expands against
+the live code-model. The completer reads from the same data sources
+as the queries themselves (cache when fresh, TSVs / SQLite
+otherwise) and is capped at 50 candidates per <TAB> to keep the
+shell responsive. If the data sources aren't set up yet (`vista
+init` not run), completion silently returns nothing — it never
+crashes the shell.
+
+### 2.2 Typo tolerance
+
+When you mistype a name, vista responds with a "Did you mean…?"
+suggestion drawn from the live entity list, ranked by edit-distance:
+
+```
+$ vista routine PRCA45TP
+Routine 'PRCA45TP' not found in code-model TSVs.
+Did you mean: PRCA45PT?
+```
+
+Active for `vista routine`, `vista package`, `vista rpc`,
+`vista option`, and `vista file`. Case-insensitive: lowercase input
+still finds the upper-case routine name, mixed-case input still
+finds the directory-cased package name.
+
 ---
 
 ## 3. Command reference

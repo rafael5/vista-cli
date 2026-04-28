@@ -6,16 +6,18 @@ from typing import Any
 
 import click
 
+from vista_cli.completion import complete_option
 from vista_cli.config import Config
 from vista_cli.format import json_out, tsv_out
 from vista_cli.stores.code_model import CodeModelStore
 from vista_cli.stores.doc_model import DocModelStore
+from vista_cli.suggestions import did_you_mean
 
 _DOC_TSV_COLUMNS = ("doc_id", "doc_type", "app_code", "patch_id", "title", "rel_path")
 
 
 @click.command()
-@click.argument("name")
+@click.argument("name", shell_complete=complete_option)
 @click.option(
     "--format",
     "fmt",
@@ -38,6 +40,11 @@ def option(
     row = cms.option(name)
     if row is None:
         click.echo(f"Option '{name}' not found in options.tsv.", err=True)
+        suggestions = did_you_mean(
+            name, [o.get("name", "") for o in cms.all_options()]
+        )
+        if suggestions:
+            click.echo(f"Did you mean: {', '.join(suggestions)}?", err=True)
         ctx.exit(1)
         return
 

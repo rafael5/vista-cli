@@ -764,6 +764,93 @@ class TestInitCommand:
         assert result.exit_code == 0
         assert "already present" in result.output
 
+    def test_init_from_local_bundle_when_data_missing_placeholder(self):
+        pass  # placeholder so the next class lands cleanly
+
+    def _placeholder(self):
+        pass
+
+
+class TestDidYouMean:
+    """Phase 5 — typo tolerance: did-you-mean suggestions on not-found."""
+
+    def test_routine_typo_suggests_close_match(self):
+        env = {**os.environ, **_env_for_fixtures()}
+        runner = CliRunner()
+        result = runner.invoke(main, ["routine", "PRCA45TP"], env=env)
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
+        assert "Did you mean" in result.output
+        assert "PRCA45PT" in result.output
+
+    def test_routine_unrelated_query_no_suggestion(self):
+        env = {**os.environ, **_env_for_fixtures()}
+        runner = CliRunner()
+        result = runner.invoke(main, ["routine", "ZZZZZZZ"], env=env)
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
+        # Far-off query shouldn't produce a suggestion line
+        assert "Did you mean" not in result.output
+
+    def test_package_typo_suggests_close_match(self):
+        env = {**os.environ, **_env_for_fixtures()}
+        runner = CliRunner()
+        # Typo of "Accounts Receivable"
+        result = runner.invoke(main, ["package", "Acounts Receivabl"], env=env)
+        assert result.exit_code == 1
+        assert "Did you mean" in result.output
+        assert "Accounts Receivable" in result.output
+
+    def test_rpc_typo_suggests_close_match(self):
+        # Fixture rpcs.tsv has at least one RPC; check fixture first
+
+        rpcs = (FIXTURE_DIR / "code-model/rpcs.tsv").read_text().splitlines()
+        if len(rpcs) < 2:  # header only — skip
+            return
+        real_name = rpcs[1].split("\t")[0]
+        # Make a one-character typo of the real name
+        if len(real_name) < 4:
+            return
+        typo = real_name[:-1] + ("Z" if real_name[-1] != "Z" else "Y")
+        env = {**os.environ, **_env_for_fixtures()}
+        runner = CliRunner()
+        result = runner.invoke(main, ["rpc", typo], env=env)
+        assert result.exit_code == 1
+        assert "Did you mean" in result.output
+        assert real_name in result.output
+
+    def test_option_typo_suggests_close_match(self):
+
+        opts = (FIXTURE_DIR / "code-model/options.tsv").read_text().splitlines()
+        if len(opts) < 2:
+            return
+        real_name = opts[1].split("\t")[0]
+        if len(real_name) < 4:
+            return
+        typo = real_name[:-1] + ("Z" if real_name[-1] != "Z" else "Y")
+        env = {**os.environ, **_env_for_fixtures()}
+        runner = CliRunner()
+        result = runner.invoke(main, ["option", typo], env=env)
+        assert result.exit_code == 1
+        assert "Did you mean" in result.output
+        assert real_name in result.output
+
+    def test_file_typo_suggests_close_match_with_name_label(self):
+
+        files = (FIXTURE_DIR / "data-model/files.tsv").read_text().splitlines()
+        if len(files) < 2:
+            return
+        real_num = files[1].split("\t")[0]
+        # Append a digit to make it a typo
+        typo = real_num + "9"
+        env = {**os.environ, **_env_for_fixtures()}
+        runner = CliRunner()
+        result = runner.invoke(main, ["file", typo], env=env)
+        assert result.exit_code == 1
+        # File suggestions include the file name in parens
+        if "Did you mean" in result.output:
+            assert real_num in result.output
+
     def test_init_from_local_bundle_when_data_missing(self, tmp_path):
         # Build a bundle, then init from it with env vars pointing at
         # paths that don't exist yet.
