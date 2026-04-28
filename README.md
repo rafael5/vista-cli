@@ -120,12 +120,11 @@ vista init        # fetches and installs the snapshot data bundle
 vista doctor      # verify
 ```
 
-The Linux tarball is built with PyInstaller against glibc 2.17
-(`manylinux2014`), so it runs on essentially any Linux from 2014
-onward (RHEL 7+, Ubuntu 18.04+, Debian 10+) with **no Python
-required on the target machine**. `aarch64` will land in v0.2.x
-(cross-build via QEMU + manylinux is brittle; deferred until a
-native ARM runner is in place).
+The Linux tarball is built with PyInstaller on `ubuntu-22.04`
+(glibc 2.35), so it runs on **Ubuntu 22.04+, Debian 12+, RHEL 9+**,
+and any reasonably modern Linux, with **no Python required on the
+target machine**. `aarch64` and a glibc-2.17 build target will land
+in v0.2.x.
 
 vista-cli is **not** distributed via PyPI. The two paths above are
 the only supported install routes; see

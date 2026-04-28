@@ -10,10 +10,15 @@ name: release
 # GitHub auto-generated tag archive — no PyPI involved.
 #
 # aarch64 will be added once we have a clean cross-build path.
-# Cross-compiling via the manylinux2014 container + QEMU breaks
-# `actions/checkout@v4` (Node 20 doesn't run on the container's
-# glibc); the modern fix is a native ARM runner. Deferred until
-# v0.2.x.
+# Deferred to v0.2.x.
+#
+# Why ubuntu-22.04 + uv (not manylinux2014):
+# The manylinux container's CPython is built without `--enable-shared`,
+# so PyInstaller can't find libpython.so and refuses to bundle. uv's
+# `python install` pulls a python-build-standalone interpreter that
+# *does* ship libpython.so. Combined with the ubuntu-22.04 runner
+# (glibc 2.35), the resulting binary runs on Ubuntu 22.04+,
+# Debian 12+, RHEL 9+, and any Linux from ~2022 onward.
 
 on:
   push:
@@ -27,30 +32,24 @@ permissions:
 jobs:
   linux-binary:
     name: linux x86_64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: build the bundle inside manylinux2014_x86_64
-        # Run the build inside the manylinux container so the
-        # resulting binary is glibc 2.17 forward-compat. Mount the
-        # working tree at /work; checkout already happened on the
-        # runner, which is the supported pattern.
-        run: |
-          docker run --rm \
-            -v "$PWD":/work \
-            -w /work \
-            quay.io/pypa/manylinux2014_x86_64 \
-            bash -c '
-              set -euxo pipefail
-              /opt/python/cp312-cp312/bin/python -m venv .venv
-              .venv/bin/pip install -U pip
-              .venv/bin/pip install -e ".[package]"
-              .venv/bin/pyinstaller --clean --noconfirm vista.spec
-              tar -cJf vista-linux-x86_64.tar.xz -C dist vista
-            '
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version-file: .python-version
 
-      - name: smoke test
+      - name: Install build deps
+        run: uv sync --extra package
+
+      - name: Build the bundle
+        run: |
+          uv run pyinstaller --clean --noconfirm vista.spec
+          tar -cJf vista-linux-x86_64.tar.xz -C dist vista
+
+      - name: Smoke test
         run: ./dist/vista/vista --version
 
       - uses: actions/upload-artifact@v4

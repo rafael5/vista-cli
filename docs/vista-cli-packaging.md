@@ -108,17 +108,20 @@ not worth paying.
 ### 4.2 glibc compatibility
 
 Linux PyInstaller binaries are dynamically linked against the build
-host's glibc. Build on a recent distro and the binary won't run on
-older systems with `GLIBC_2.34 not found`. CI builds inside
-`quay.io/pypa/manylinux2014_x86_64` — based on CentOS 7 with glibc
-2.17, which gives forward compatibility to essentially any Linux
-from 2014 onward (RHEL 7, Ubuntu 18.04, Debian 10, anything newer).
+host's glibc. We build on `ubuntu-22.04` (glibc 2.35) using `uv` to
+provision a python-build-standalone interpreter that ships
+`libpython.so` — manylinux2014's CPython is `--disable-shared` and
+won't link with PyInstaller. The resulting binary runs on **Ubuntu
+22.04+, Debian 12+, RHEL 9+**, and any Linux from ~2022 onward.
 
-`aarch64` is deferred to v0.2.x. Cross-building with QEMU + the
-manylinux container breaks `actions/checkout@v4` (Node 20 doesn't
-run on the container's glibc); the modern fix is a native ARM
-runner, which we'll switch to when the build pipeline is otherwise
-quiet.
+A glibc-2.17-compatible build (Ubuntu 18.04+, RHEL 7+) requires a
+manylinux-style toolchain *with* a shared-libpython interpreter.
+Deferred until there's user demand.
+
+`aarch64` is also deferred to v0.2.x. Cross-building via QEMU
+breaks `actions/checkout@v4` and adds significant CI time; the
+clean fix is a native ARM runner, which we'll switch to when the
+build pipeline is otherwise quiet.
 
 ### 4.3 Local build
 
