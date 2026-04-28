@@ -19,10 +19,10 @@ without requiring Python or pip on the target machine.
 - **Linux users do not have a single common package manager.** We
   ship a self-contained tarball that bundles its own Python runtime.
 - **No Python or pip required by the user on either platform.**
-
-A secondary path (`pip install vista-cli`) exists for developers who
-already use pipx / uv / poetry, but it is not the documented happy
-path.
+- **No PyPI distribution.** vista-cli is not published as a Python
+  package on PyPI. Developers contributing to the project install
+  from a source clone (`make install`); end users install via the
+  two paths above.
 
 ---
 
@@ -30,10 +30,9 @@ path.
 
 | Platform | Method | What ships | Size | User command |
 |---|---|---|---|---|
-| **macOS (any arch)** | Homebrew formula | `vista-cli` source + `python@3.12` dep | <1 MB (formula); Homebrew handles Python | `brew install rafael5/vista/vista` |
+| **macOS (any arch)** | Homebrew formula | source tarball + `python@3.12` dep | <1 MB (formula); Homebrew handles Python | `brew install rafael5/vista/vista` |
 | **Linux x86_64** | PyInstaller tarball | self-contained binary bundle | ~10 MB compressed / ~35 MB extracted | extract + drop on `$PATH` |
 | **Linux aarch64** | PyInstaller tarball | self-contained binary bundle | ~10 MB compressed / ~35 MB extracted | extract + drop on `$PATH` |
-| **Anywhere with Python** | PyPI | sdist + wheel | <1 MB | `pipx install vista-cli` |
 
 The snapshot data bundle (~60 MB compressed; covered in
 [vista-cli-portable-distribution.md](vista-cli-portable-distribution.md))
@@ -45,7 +44,7 @@ with one command, then run `vista init` to fetch the data.
 ## 3. macOS — Homebrew formula
 
 [Formula/vista.rb](../Formula/vista.rb) defines the formula. The
-distribution model is a tap on this same repository:
+distribution model is a self-tap on this same repository:
 
 ```bash
 brew tap rafael5/vista https://github.com/rafael5/vista-cli
@@ -62,21 +61,29 @@ Why a Homebrew formula instead of a PyInstaller binary on macOS:
 - Homebrew handles its own Python (`python@3.12`), so the
   no-Python-required property still holds from the user's
   perspective. They never see pip or a venv.
-- Tap maintenance is one URL bump + one SHA per release. The CI
-  workflow (§5) emits the metadata to do it.
+- Tap maintenance is one URL bump + one SHA per release. No PyPI
+  registration is required — the formula sources the project's tag
+  archive directly from GitHub.
 
 The formula uses Homebrew's `Language::Python::Virtualenv` mixin,
-which automates the venv creation and resource installation. Each
-release of vista-cli requires bumping `url` to the new sdist on the
-GitHub release and recomputing `sha256`:
+which automates the venv creation and resource installation. The
+`url` field points at the auto-generated source archive that GitHub
+publishes for every tag:
+
+```
+https://github.com/rafael5/vista-cli/archive/refs/tags/vX.Y.Z.tar.gz
+```
+
+Each release of vista-cli requires bumping that URL to the new tag
+and recomputing `sha256`:
 
 ```bash
-curl -L https://github.com/rafael5/vista-cli/releases/download/v0.X.0/vista_cli-0.X.0.tar.gz \
+curl -L https://github.com/rafael5/vista-cli/archive/refs/tags/v0.X.0.tar.gz \
   | shasum -a 256
 ```
 
 `brew livecheck` against the GitHub Releases atom feed can automate
-the bump if you want to publish a Homebrew tap that updates itself.
+the bump if you want a tap that updates itself.
 
 ---
 
@@ -137,22 +144,16 @@ target.
 ## 5. CI release workflow
 
 [.github/workflows/release.yml](../.github/workflows/release.yml)
-runs on `v*` tag pushes (and via manual dispatch). Three concurrent
-jobs:
+runs on `v*` tag pushes (and via manual dispatch). Two jobs:
 
-1. **`pypi`** — builds sdist + wheel via `python -m build`.
-2. **`linux-binary`** — matrix of `(x86_64, aarch64)` running the
+1. **`linux-binary`** — matrix of `(x86_64, aarch64)` running the
    PyInstaller build inside the `manylinux2014_*` containers.
-3. **`release`** — gathers all artifacts, computes
-   `SHA256SUMS`, attaches everything to the GitHub release, and
-   pushes the wheel + sdist to PyPI via trusted publishing.
+2. **`release`** — gathers the binary tarballs, computes
+   `SHA256SUMS`, attaches everything to the GitHub release.
 
-The release ends up with a flat list of assets on the GitHub
-release page:
+The release ends up with this asset list on the GitHub release page:
 
 ```
-vista_cli-0.1.0-py3-none-any.whl
-vista_cli-0.1.0.tar.gz
 vista-linux-x86_64.tar.xz
 vista-linux-aarch64.tar.xz
 SHA256SUMS
@@ -165,6 +166,10 @@ portable-distribution doc):
 vista-snapshot-2026.04.28.tar.xz
 vista-snapshot-2026.04.28.tar.xz.sha256
 ```
+
+The macOS install path doesn't produce its own asset — Homebrew
+sources directly from the auto-generated tag archive that GitHub
+publishes alongside every release.
 
 ---
 
@@ -191,9 +196,12 @@ brew upgrade vista
 
 Considered and rejected:
 
-- **`uv tool install vista-cli`** — works fine for developers who
-  already have uv, but isn't a clean Mac story. Conflicts with the
-  Homebrew expectation set by the audience.
+- **PyPI / `pipx install vista-cli` / `uv tool install vista-cli`** —
+  rejected to keep the distribution surface tight: two install paths
+  (Homebrew + PyInstaller tarball), one place to look when something
+  breaks, no PyPI namespace to defend, no transitive concern about
+  pip resolver behaviour, and no second-class "install via pip"
+  developer path that drifts in version from the documented one.
 - **PyOxidizer / Nuitka** — smaller binaries, faster startup, but
   more brittle around dynamic imports and longer CI builds.
   Revisit only if the 96 ms PyInstaller startup or 35 MB bundle

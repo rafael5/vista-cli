@@ -986,9 +986,11 @@ This already covers ~80% of daily use.
 ### Phase 4 — Portable distribution + VSCode + MCP (open-ended)
 
 - **Portable snapshot bundle** + `vista init` / `vista fetch` /
-  `vista snapshot` so a clean machine can go from `pip install` to
+  `vista snapshot` so a clean machine can go from a fresh CLI
+  install (Homebrew on macOS, PyInstaller tarball on Linux) to
   working queries in two commands. Detailed design in
-  [vista-cli-portable-distribution.md](vista-cli-portable-distribution.md).
+  [vista-cli-portable-distribution.md](vista-cli-portable-distribution.md);
+  packaging in [vista-cli-packaging.md](vista-cli-packaging.md).
 - VSCode extension calls `vista` as a subprocess for hover,
   CodeLens, package sidebar (extends the
   [extension internals roadmap](vscode-extension-internals.md)).

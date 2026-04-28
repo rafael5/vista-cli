@@ -11,7 +11,7 @@
 # After install, run `vista init` to fetch the snapshot data bundle.
 #
 # To update this formula on a release:
-#   1. Bump `url` to the new sdist on GitHub Releases (or PyPI).
+#   1. Bump `url` to the new tag's source archive on GitHub.
 #   2. Recompute `sha256`:
 #        curl -L <url> | shasum -a 256
 #   3. Bump `version`.
@@ -24,12 +24,16 @@ class Vista < Formula
 
   desc "Joined VistA code + documentation queries (vista-cli)"
   homepage "https://github.com/rafael5/vista-cli"
-  url "https://github.com/rafael5/vista-cli/releases/download/v0.1.0/vista_cli-0.1.0.tar.gz"
-  sha256 "REPLACE_WITH_SDIST_SHA256_ON_RELEASE"
+  url "https://github.com/rafael5/vista-cli/archive/refs/tags/v0.1.0.tar.gz"
+  sha256 "REPLACE_WITH_TAG_ARCHIVE_SHA256_ON_RELEASE"
   license "MIT"
 
   depends_on "python@3.12"
 
+  # The single Python runtime dependency. Sourced from PyPI as a
+  # Homebrew resource — this is the standard pattern for declaring
+  # third-party Python deps in a formula and is not a vista-cli
+  # distribution channel.
   resource "click" do
     url "https://files.pythonhosted.org/packages/source/c/click/click-8.1.7.tar.gz"
     sha256 "ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de"

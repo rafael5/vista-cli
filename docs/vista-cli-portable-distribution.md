@@ -2,11 +2,13 @@
 
 Addendum to [vista-cli-planning.md](vista-cli-planning.md). Specifies
 how vista-cli ships **without** a pre-existing vista-meta or
-vista-docs install on the host, so a user can go from `pip install
-vista-cli` to working queries with one bootstrap command.
+vista-docs install on the host, so a user can go from a fresh
+install (Homebrew on macOS, PyInstaller tarball on Linux — see
+[vista-cli-packaging.md](vista-cli-packaging.md)) to working queries
+with one bootstrap command.
 
-> Status: design proposal. Phase 4 work in the main roadmap.
-> Depends on `vista build-cache` (phase 3).
+> Status: implemented (phase 4). Depends on `vista build-cache`
+> (phase 3).
 
 ---
 
@@ -32,9 +34,10 @@ multi-step build.
 
 Two non-negotiables:
 
-- **No install-time code execution.** Wheels are file-copy by design;
-  `pip install vista-cli` must not download data, build indexes, or
-  run anything. Bootstrap is an explicit command.
+- **No install-time code execution.** Bootstrap is an explicit
+  command (`vista init`). The CLI install (Homebrew or the
+  PyInstaller tarball) is a pure file-copy operation that never
+  reaches out to the network during install.
 - **Existing-install path stays first-class.** A user with their own
   vista-meta/vista-docs sets the env vars from §1.3 of the guide and
   ignores `vista init` entirely. The bundle is a fallback, not a
@@ -217,7 +220,7 @@ Two reasonable options, each measured against the actual data.
 Recommendation: **A (ship the index).** The 20 MB savings doesn't
 justify the 30 s install delay on the user's first impression of
 the tool, and disk after install is the same either way. Option B
-is the lever to pull *only* if PyPI / GitHub Release size limits
+is the lever to pull *only* if GitHub Release asset-size limits
 ever start mattering.
 
 The producer side strips trivially when needed:
@@ -307,22 +310,26 @@ analyst workstation behind a corporate firewall consumes it.
 
 ```bash
 # On the connected machine
-pip install vista-cli
+#   (install vista-cli per the platform install path in
+#    vista-cli-packaging.md, then download a snapshot)
 vista fetch --download-only --out ~/Downloads/vista-snapshot.tar.xz
 
-# Transfer the .tar.xz across the air-gap (USB, secure copy, etc.)
+# Transfer both the CLI install artifact and the snapshot tarball
+# across the air-gap (USB, secure copy, etc.):
+#   - macOS:  the auto-generated tag archive Homebrew taps from
+#   - Linux:  vista-linux-${ARCH}.tar.xz from the GitHub Release
 
 # On the air-gapped machine
-pip install vista-cli   # or sideload the wheel
+#   - macOS:  brew install --build-from-source ./vista.rb (sideload)
+#   - Linux:  tar -xJf vista-linux-${ARCH}.tar.xz; ln -s ... /usr/local/bin/vista
 vista init --from ~/Downloads/vista-snapshot.tar.xz
 vista doctor            # green
 ```
 
 Both halves of the workflow run the same command surface as the
-network path; `--from` is the only difference. The wheel itself
-has no install-time network dependency (it's pure-Python, single
-dep `click>=8.1`), so `pip install vista-cli --no-index --find-links
-./wheels/` works in the standard sideload pattern.
+network path; `--from` is the only difference. The Linux PyInstaller
+tarball is fully self-contained (its own Python interpreter is
+embedded), so the air-gapped target needs nothing pre-installed.
 
 ---
 
@@ -333,7 +340,7 @@ dep `click>=8.1`), so `pip install vista-cli --no-index --find-links
 | Network unreachable during `fetch` | Print the resolved URL + sha256, suggest manual download + `--from` |
 | SHA-256 mismatch | Refuse to install, leave existing snapshot intact, exit 1 |
 | Disk full mid-extract | Detect required space *before* extract via the manifest, fail fast |
-| Snapshot newer than CLI (`min_vista_cli_version`) | Refuse, suggest `pip install -U vista-cli` |
+| Snapshot newer than CLI (`min_vista_cli_version`) | Refuse, suggest `brew upgrade vista` (macOS) or re-download the Linux tarball |
 | Snapshot older than CLI (`schema_version` retired) | Refuse, suggest `vista fetch` for a newer snapshot |
 | User has env vars set (existing vista-meta) | `vista init` reports the existing setup and exits 0 — don't overwrite |
 | `--rollback` with no `snapshot.bak/` | Print a clear message, exit 1 |
