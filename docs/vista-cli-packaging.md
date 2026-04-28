@@ -32,7 +32,7 @@ without requiring Python or pip on the target machine.
 |---|---|---|---|---|
 | **macOS (any arch)** | Homebrew formula | source tarball + `python@3.12` dep | <1 MB (formula); Homebrew handles Python | `brew install rafael5/vista/vista` |
 | **Linux x86_64** | PyInstaller tarball | self-contained binary bundle | ~10 MB compressed / ~35 MB extracted | extract + drop on `$PATH` |
-| **Linux aarch64** | PyInstaller tarball | self-contained binary bundle | ~10 MB compressed / ~35 MB extracted | extract + drop on `$PATH` |
+| **Linux aarch64** | _planned (v0.2.x)_ | — | — | — |
 
 The snapshot data bundle (~60 MB compressed; covered in
 [vista-cli-portable-distribution.md](vista-cli-portable-distribution.md))
@@ -109,11 +109,16 @@ not worth paying.
 
 Linux PyInstaller binaries are dynamically linked against the build
 host's glibc. Build on a recent distro and the binary won't run on
-older systems with `GLIBC_2.34 not found`. The CI matrix builds
-inside `quay.io/pypa/manylinux2014_x86_64` (and `_aarch64`) — both
-based on CentOS 7 with glibc 2.17, which gives forward compatibility
-to essentially any Linux from 2014 onward (RHEL 7, Ubuntu 18.04,
-Debian 10, anything newer).
+older systems with `GLIBC_2.34 not found`. CI builds inside
+`quay.io/pypa/manylinux2014_x86_64` — based on CentOS 7 with glibc
+2.17, which gives forward compatibility to essentially any Linux
+from 2014 onward (RHEL 7, Ubuntu 18.04, Debian 10, anything newer).
+
+`aarch64` is deferred to v0.2.x. Cross-building with QEMU + the
+manylinux container breaks `actions/checkout@v4` (Node 20 doesn't
+run on the container's glibc); the modern fix is a native ARM
+runner, which we'll switch to when the build pipeline is otherwise
+quiet.
 
 ### 4.3 Local build
 
@@ -146,16 +151,16 @@ target.
 [.github/workflows/release.yml](../.github/workflows/release.yml)
 runs on `v*` tag pushes (and via manual dispatch). Two jobs:
 
-1. **`linux-binary`** — matrix of `(x86_64, aarch64)` running the
-   PyInstaller build inside the `manylinux2014_*` containers.
-2. **`release`** — gathers the binary tarballs, computes
+1. **`linux-binary`** — runs the PyInstaller build inside the
+   `manylinux2014_x86_64` container, mounted from the runner so
+   `actions/checkout@v4` can run on the host.
+2. **`release`** — gathers the binary tarball, computes
    `SHA256SUMS`, attaches everything to the GitHub release.
 
 The release ends up with this asset list on the GitHub release page:
 
 ```
 vista-linux-x86_64.tar.xz
-vista-linux-aarch64.tar.xz
 SHA256SUMS
 ```
 

@@ -20,6 +20,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --extra dev
 
+      - name: Build test fixtures
+        # tests/fixtures/frontmatter.db is gitignored (*.db);
+        # the fixture-builder produces it from the fixture TSVs.
+        run: uv run python tests/fixtures/build_fixture_db.py
+
       - name: Lint
         run: uv run ruff check src/ tests/
 

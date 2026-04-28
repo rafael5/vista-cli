@@ -123,8 +123,9 @@ vista doctor      # verify
 The Linux tarball is built with PyInstaller against glibc 2.17
 (`manylinux2014`), so it runs on essentially any Linux from 2014
 onward (RHEL 7+, Ubuntu 18.04+, Debian 10+) with **no Python
-required on the target machine**. An `aarch64` build is published
-alongside the `x86_64` one.
+required on the target machine**. `aarch64` will land in v0.2.x
+(cross-build via QEMU + manylinux is brittle; deferred until a
+native ARM runner is in place).
 
 vista-cli is **not** distributed via PyPI. The two paths above are
 the only supported install routes; see
