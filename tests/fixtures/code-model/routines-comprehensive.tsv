@@ -1,0 +1,4 @@
+routine_name	package	source_path	line_count	byte_size	tag_count	comment_line_count	version_line	is_percent_routine	in_file_9_8	file_9_8_type	rpc_count	option_count	protocol_invoked_count	out_degree	in_degree	out_calls_total	in_calls_total	distinct_globals_touched	global_ref_total
+PRCA45PT	Accounts Receivable	/opt/VistA-M/Packages/Accounts Receivable/Routines/PRCA45PT.m	74	2400	5	8	;;4.5;Accounts Receivable;**14,79,153,302,409**;Mar 20, 1995;Build 78	0	1	R	0	1	0	5	0	16	0	1	18
+PRCAACT	Accounts Receivable	/opt/VistA-M/Packages/Accounts Receivable/Routines/PRCAACT.m	412	14000	18	24	;;4.5;Accounts Receivable;**1,12,55**;Mar 20, 1995	0	1	R	2	0	0	24	8	112	38	4	2418
+XUSCLEAN	Kernel	/opt/VistA-M/Packages/Kernel/Routines/XUSCLEAN.m	180	5800	12	14	;;8.0;KERNEL;**1,2,3**;Jul 10, 1995	0	1	R	0	0	0	20	412	84	1240	5	2200

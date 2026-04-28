@@ -1,0 +1,7 @@
+caller_name	caller_package	callee_tag	callee_routine	kind	ref_count
+PRCA45PT	Accounts Receivable	BMES	XPDUTL	do	7
+PRCA45PT	Accounts Receivable	MES	XPDUTL	do	6
+PRCA45PT	Accounts Receivable	HOME	%ZIS	do	1
+PRCA45PT	Accounts Receivable		%ZTLOAD	do	1
+PRCA45PT	Accounts Receivable		DIK	do	1
+PRCAACT	Accounts Receivable	EN	PRCA45PT	do	1

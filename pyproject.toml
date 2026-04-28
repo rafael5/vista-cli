@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vista-cli"
+version = "0.1.0"
+description = "Unified CLI joining vista-meta code model with vista-docs documentation"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1",
+]
+
+[project.scripts]
+vista = "vista_cli.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-watch",
+    "pytest-randomly",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: tests that read real vista-meta / vista-docs data on disk",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/vista_cli/__main__.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true

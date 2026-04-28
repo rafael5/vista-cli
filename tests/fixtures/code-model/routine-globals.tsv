@@ -1,0 +1,6 @@
+routine_name	package	global_name	ref_count
+PRCA45PT	Accounts Receivable	PRCA	18
+PRCAACT	Accounts Receivable	PRCA	2418
+PRCAACT	Accounts Receivable	DPT	24
+XUSCLEAN	Kernel	XUSEC	412
+XUSCLEAN	Kernel	XTMP	120
