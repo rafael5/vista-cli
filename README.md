@@ -101,10 +101,16 @@ worked-example workflows, see the
 ### macOS — Homebrew
 
 ```bash
+# install
 brew tap rafael5/vista https://github.com/rafael5/vista-cli
 brew install vista
 vista init        # fetches and installs the snapshot data bundle
 vista doctor      # verify
+
+# uninstall
+brew uninstall vista
+brew untap rafael5/vista
+rm -rf ~/data/vista                  # optional — removes snapshot + cache
 ```
 
 Homebrew handles the Python interpreter via its own `python@3.12`
@@ -113,18 +119,29 @@ formula — you never see pip or a venv.
 ### Linux — self-contained tarball
 
 ```bash
+# install (per-user, no sudo)
+mkdir -p ~/.local/opt
 curl -LO https://github.com/rafael5/vista-cli/releases/latest/download/vista-linux-x86_64.tar.xz
-tar -xJf vista-linux-x86_64.tar.xz
-sudo ln -s "$PWD/vista/vista" /usr/local/bin/vista
+tar -xJf vista-linux-x86_64.tar.xz -C ~/.local/opt/
+ln -sf ~/.local/opt/vista/vista ~/.local/bin/vista
+rm vista-linux-x86_64.tar.xz
 vista init        # fetches and installs the snapshot data bundle
 vista doctor      # verify
+
+# uninstall
+rm ~/.local/bin/vista
+rm -rf ~/.local/opt/vista
+rm -rf ~/data/vista                  # optional — removes snapshot + cache
 ```
 
 The Linux tarball is built with PyInstaller on `ubuntu-22.04`
 (glibc 2.35), so it runs on **Ubuntu 22.04+, Debian 12+, RHEL 9+**,
 and any reasonably modern Linux, with **no Python required on the
-target machine**. `aarch64` and a glibc-2.17 build target will land
-in v0.2.x.
+target machine**. Confirm `~/.local/bin` is on your `$PATH` (most
+modern distros, including Linux Mint, set this by default). For
+a system-wide install instead, swap `~/.local/opt` → `/opt` and
+`~/.local/bin/vista` → `/usr/local/bin/vista` (with `sudo`).
+`aarch64` and a glibc-2.17 build target will land in v0.2.x.
 
 vista-cli is **not** distributed via PyPI. The two paths above are
 the only supported install routes; see
@@ -134,10 +151,16 @@ rationale.
 ### From source (contributors)
 
 ```bash
+# install
 git clone https://github.com/rafael5/vista-cli
 cd vista-cli
 make install      # uv sync --extra dev + pre-commit + test fixtures
 make check        # lint + mypy + tests (217 tests, ruff + mypy clean)
+ln -sf "$PWD/.venv/bin/vista" ~/.local/bin/vista   # optional — put on $PATH
+
+# uninstall
+rm -f ~/.local/bin/vista
+rm -rf ~/projects/vista-cli          # or wherever the clone lives
 ```
 
 ## Documentation
