@@ -7,12 +7,17 @@ VSCode extension (see vista-meta/vscode-extension/src/tsv.ts).
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 Row = dict[str, str]
+
+# Line-2 patch list embedded in routine version_line, e.g.:
+#   ;;4.5;Accounts Receivable;**14,79,153,302,409**;Mar 20, 1995
+_RE_PATCH_LIST = re.compile(r"\*\*([0-9,\s]+)\*\*")
 
 
 class CodeModelStore:
@@ -116,10 +121,99 @@ class CodeModelStore:
     def rpcs_in_routine(self, routine: str) -> list[Row]:
         return self._by("rpcs.tsv", "routine").get(routine, [])
 
+    def rpc(self, name: str) -> Row | None:
+        rows = self._by("rpcs.tsv", "name").get(name)
+        return rows[0] if rows else None
+
+    def rpcs_by_package(self, package: str) -> list[Row]:
+        return self._by("rpcs.tsv", "package").get(package, [])
+
     # ── options.tsv ────────────────────────────────────────────────
 
     def options_in_routine(self, routine: str) -> list[Row]:
         return self._by("options.tsv", "routine").get(routine, [])
+
+    def option(self, name: str) -> Row | None:
+        rows = self._by("options.tsv", "name").get(name)
+        return rows[0] if rows else None
+
+    def options_by_package(self, package: str) -> list[Row]:
+        return self._by("options.tsv", "package").get(package, [])
+
+    # ── routine-globals.tsv (reverse) ──────────────────────────────
+
+    def routines_using_global(self, global_name: str) -> list[Row]:
+        rows = self._by("routine-globals.tsv", "global_name").get(global_name, [])
+        return sorted(rows, key=lambda r: -_to_int(r.get("ref_count", "0")))
+
+    # ── packages.tsv ───────────────────────────────────────────────
+
+    def package(self, name: str) -> Row | None:
+        rows = self._by("packages.tsv", "package").get(name)
+        return rows[0] if rows else None
+
+    def all_packages(self) -> list[Row]:
+        return self._load("packages.tsv")
+
+    # ── routines-comprehensive.tsv (cross filters) ─────────────────
+
+    def all_routines(self) -> list[Row]:
+        return self._load("routines-comprehensive.tsv")
+
+    def patches_for_routine(self, name: str) -> list[str]:
+        """Return canonical patch IDs from a routine's line-2 version line.
+
+        Examples for `PRCA45PT` whose version_line is
+        `;;4.5;Accounts Receivable;**14,79,153,302,409**;...` and whose
+        package namespace is `PRCA` →
+        `["PRCA*4.5*14", "PRCA*4.5*79", ...]`.
+        """
+        row = self.routine(name)
+        if row is None:
+            return []
+        v_line = row.get("version_line", "")
+        m = _RE_PATCH_LIST.search(v_line)
+        if not m:
+            return []
+        # Version is the first ";;<ver>;" segment.
+        ver_match = re.search(r";;([0-9]+(?:\.[0-9]+)?);", v_line)
+        if not ver_match:
+            return []
+        ver = ver_match.group(1)
+        # Namespace: walk the routine name back until it stops being
+        # alphabetic (matches the convention `<NS><digits/letters>`).
+        ns = _routine_namespace(name)
+        nums = [p.strip() for p in m.group(1).split(",") if p.strip()]
+        return [f"{ns}*{ver}*{n}" for n in nums]
+
+    def routines_for_patch(self, patch_id: str) -> list[Row]:
+        """Routines whose line-2 patch list mentions this patch.
+
+        `patch_id` is in canonical KIDS form, e.g. `PRCA*4.5*409`.
+        Matches on namespace + version + number.
+        """
+        m = re.match(
+            r"^([A-Z%][A-Z0-9]{0,3})\*(\d+(?:\.\d+)?)\*(\d+)$",
+            patch_id.upper(),
+        )
+        if not m:
+            return []
+        ns, ver, num = m.group(1), m.group(2), m.group(3)
+        out: list[Row] = []
+        for r in self.all_routines():
+            name = r.get("routine_name", "")
+            if not name.upper().startswith(ns):
+                continue
+            v_line = r.get("version_line", "")
+            if f";{ver};" not in v_line and not v_line.startswith(f";;{ver};"):
+                continue
+            patch_list = _RE_PATCH_LIST.search(v_line)
+            if not patch_list:
+                continue
+            nums = {p.strip() for p in patch_list.group(1).split(",") if p.strip()}
+            if num in nums:
+                out.append(r)
+        return out
 
 
 def _to_int(s: str) -> int:
@@ -127,3 +221,20 @@ def _to_int(s: str) -> int:
         return int(s)
     except (ValueError, TypeError):
         return 0
+
+
+def _routine_namespace(name: str) -> str:
+    """Heuristic: leading letters of a routine name form its namespace.
+
+    `PRCA45PT` → `PRCA`, `XUSCLEAN` → `XUSCLEAN` (all alpha), `%ZTLOAD` → `%ZTLOAD`.
+    Stops at the first digit; `%` is treated as alphabetic.
+    """
+    if not name:
+        return ""
+    out = ""
+    for ch in name:
+        if ch.isalpha() or ch == "%":
+            out += ch
+        else:
+            break
+    return out

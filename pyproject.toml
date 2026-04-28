@@ -4,12 +4,34 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vista-cli"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Unified CLI joining vista-meta code model with vista-docs documentation"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Rafael Richards", email = "rmrich5@gmail.com"},
+]
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1",
 ]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Documentation",
+]
+
+[project.urls]
+Homepage = "https://github.com/rafael5/vista-cli"
+Repository = "https://github.com/rafael5/vista-cli"
+Issues = "https://github.com/rafael5/vista-cli/issues"
 
 [project.scripts]
 vista = "vista_cli.cli:main"
@@ -24,9 +46,18 @@ dev = [
     "mypy",
     "pre-commit",
 ]
+package = [
+    "pyinstaller>=6.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"vista_cli" = ["data/*.csv"]
+
+[tool.setuptools.dynamic]
+version = {attr = "vista_cli.__version__"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,102 @@
+name: release
+
+# Triggered by pushing a `v*` tag (e.g. `v0.1.0`).
+# Builds:
+#   - source distribution + universal wheel for PyPI
+#   - Linux PyInstaller tarballs (x86_64, aarch64) for direct download
+# Uploads everything as assets on the GitHub release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write          # to create / edit the release
+  id-token: write          # for PyPI trusted publishing
+
+jobs:
+  # ── PyPI artifacts ──────────────────────────────────────────────
+  pypi:
+    name: build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypi-dist
+          path: dist/*
+
+  # ── Linux PyInstaller tarballs ──────────────────────────────────
+  linux-binary:
+    name: linux ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            container: quay.io/pypa/manylinux2014_x86_64
+          - arch: aarch64
+            # Cross-build for arm64 via QEMU + the manylinux aarch64 image.
+            container: quay.io/pypa/manylinux2014_aarch64
+    container:
+      image: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: build the bundle
+        run: |
+          /opt/python/cp312-cp312/bin/python -m venv .venv
+          .venv/bin/pip install -U pip
+          .venv/bin/pip install -e ".[package]"
+          .venv/bin/pyinstaller --clean --noconfirm vista.spec
+          tar -cJf vista-linux-${{ matrix.arch }}.tar.xz -C dist vista
+      - name: smoke test
+        run: ./dist/vista/vista --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: vista-linux-${{ matrix.arch }}.tar.xz
+
+  # ── Aggregate all artifacts onto the GitHub Release ─────────────
+  release:
+    name: publish
+    needs: [pypi, linux-binary]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: collect for release
+        run: |
+          mkdir release
+          cp artifacts/pypi-dist/* release/
+          cp artifacts/linux-x86_64/* release/
+          cp artifacts/linux-aarch64/* release/
+          # SHA-256 manifest for everything in the release
+          (cd release && sha256sum * > SHA256SUMS)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+      # PyPI publish via trusted publishing (no API token needed).
+      # Only the wheels + sdist go up — keep the binary tarballs out
+      # of the upload directory.
+      - name: stage pypi-only artifacts
+        run: |
+          mkdir pypi-upload
+          cp artifacts/pypi-dist/*.whl pypi-upload/ 2>/dev/null || true
+          cp artifacts/pypi-dist/*.tar.gz pypi-upload/ 2>/dev/null || true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pypi-upload/
+          skip-existing: true

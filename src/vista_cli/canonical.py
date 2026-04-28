@@ -5,15 +5,19 @@ vista-docs names them by VDL app_code ("PSO") and VistA namespace
 ("PSO" — sometimes overlapping but not always). canonical.py owns
 the bidirectional map.
 
-The current map is hand-maintained against a known subset of
-WorldVistA packages. Phase 2 will swap this in for a CSV loaded at
-startup; the function signature is stable.
+The map is loaded from `src/vista_cli/data/packages.csv` (shipped
+with the package). `VISTA_PACKAGES_CSV` overrides for testing or
+local extensions.
 """
 
 from __future__ import annotations
 
+import csv
+import os
 import re
 from dataclasses import dataclass
+from importlib import resources
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -23,25 +27,36 @@ class PackageId:
     app_code: str  # "PSO"  (VDL app code)
 
 
-# Hand-curated for phase 1. Phase 2 ships this as a CSV.
-_PACKAGES: tuple[PackageId, ...] = (
-    PackageId("Accounts Receivable", "PRCA", "PRCA"),
-    PackageId("Outpatient Pharmacy", "PSO", "PSO"),
-    PackageId("Inpatient Pharmacy", "PSI", "PSJ"),
-    PackageId("Pharmacy Data Management", "PSS", "PSS"),
-    PackageId("Kernel", "XU", "XU"),
-    PackageId("Kernel Toolkit", "XT", "XT"),
-    PackageId("FileMan", "DI", "DI"),
-    PackageId("Lab Service", "LR", "LR"),
-    PackageId("Radiology Nuclear Medicine", "RA", "RA"),
-    PackageId("Order Entry Results Reporting", "OR", "OR"),
-    PackageId("Registration", "DG", "DG"),
-    PackageId("Integrated Billing", "IB", "IB"),
-    PackageId("Dietetics", "FH", "FH"),
-    PackageId("Allergy", "GMRA", "GMRA"),
-    PackageId("Imaging", "MAG", "MAG"),
-    PackageId("Text Integration Utilities", "TIU", "TIU"),
-)
+_CACHED: tuple[PackageId, ...] | None = None
+_CACHED_KEY: str | None = None
+
+
+def _csv_path() -> Path:
+    override = os.environ.get("VISTA_PACKAGES_CSV")
+    if override:
+        return Path(override)
+    return Path(str(resources.files("vista_cli") / "data" / "packages.csv"))
+
+
+def _load_packages() -> tuple[PackageId, ...]:
+    global _CACHED, _CACHED_KEY
+    path = _csv_path()
+    key = str(path)
+    if _CACHED is not None and _CACHED_KEY == key:
+        return _CACHED
+    rows: list[PackageId] = []
+    with path.open(encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            rows.append(
+                PackageId(
+                    directory=r["directory"],
+                    ns=r["ns"],
+                    app_code=r["app_code"],
+                )
+            )
+    _CACHED = tuple(rows)
+    _CACHED_KEY = key
+    return _CACHED
 
 
 def resolve_package(query: str) -> PackageId | None:
@@ -58,13 +73,14 @@ def resolve_package(query: str) -> PackageId | None:
     if not q:
         return None
     qu = q.upper()
-    for p in _PACKAGES:
+    pkgs = _load_packages()
+    for p in pkgs:
         if p.directory.lower() == q.lower():
             return p
-    for p in _PACKAGES:
+    for p in pkgs:
         if p.ns.upper() == qu:
             return p
-    for p in _PACKAGES:
+    for p in pkgs:
         if p.app_code.upper() == qu:
             return p
     return None
@@ -72,7 +88,7 @@ def resolve_package(query: str) -> PackageId | None:
 
 def all_packages() -> tuple[PackageId, ...]:
     """Return the full canonical package map (for listing / coverage)."""
-    return _PACKAGES
+    return _load_packages()
 
 
 # ── Reference shape detection ──────────────────────────────────────

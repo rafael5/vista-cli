@@ -9,7 +9,7 @@ import click
 from vista_cli.canonical import resolve_package
 from vista_cli.config import Config
 from vista_cli.format import json_out, markdown
-from vista_cli.stores.code_model import CodeModelStore
+from vista_cli.stores.code_view import make_code_view
 from vista_cli.stores.doc_model import DocModelStore
 
 
@@ -38,8 +38,13 @@ def routine(
 ) -> None:
     """Show code facts and documentation refs for a routine."""
     cfg: Config = ctx.obj["config"]
+    allow_cache = ctx.obj.get("allow_cache", True)
     info = _build_info(
-        name, cfg, with_docs=not no_docs, latest_only=not all_versions
+        name,
+        cfg,
+        with_docs=not no_docs,
+        latest_only=not all_versions,
+        allow_cache=allow_cache,
     )
     if info is None:
         click.echo(f"Routine '{name}' not found in code-model TSVs.", err=True)
@@ -58,9 +63,15 @@ def _build_info(
     *,
     with_docs: bool,
     latest_only: bool = True,
+    allow_cache: bool = True,
 ) -> dict[str, Any] | None:
-    cms = CodeModelStore(cfg.code_model_dir)
-    row = cms.routine(name)
+    view = make_code_view(
+        code_model_dir=cfg.code_model_dir,
+        cache_db=cfg.cache_db,
+        doc_db=cfg.doc_db,
+        allow_cache=allow_cache,
+    )
+    row = view.routine(name)
     if row is None:
         return None
 
@@ -79,12 +90,12 @@ def _build_info(
         "rpc_count": _i(row.get("rpc_count")),
         "option_count": _i(row.get("option_count")),
         "version_line": row.get("version_line", ""),
-        "callees": cms.callees(name),
-        "callers": cms.callers(name),
-        "globals": cms.globals_for(name),
-        "xindex": cms.xindex_errors(name),
-        "rpcs": cms.rpcs_in_routine(name),
-        "options": cms.options_in_routine(name),
+        "callees": view.callees(name),
+        "callers": view.callers(name),
+        "globals": view.globals_for(name),
+        "xindex": view.xindex_errors(name),
+        "rpcs": view.rpcs_in_routine(name),
+        "options": view.options_in_routine(name),
         "docs": [],
     }
 

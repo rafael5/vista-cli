@@ -1,2 +1,3 @@
 ien	name	menu_text	type	package	routine_raw	tag	routine
 1	PRCA PURGE EXEMPT BILL FILES	Purge Exempt Bill Files	run routine	Accounts Receivable	PRCA45PT	EN	PRCA45PT
+2	XU CLEAN	System Cleanup	run routine	Kernel	XUSCLEAN		XUSCLEAN

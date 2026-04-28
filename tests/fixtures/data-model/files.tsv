@@ -1,0 +1,4 @@
+file_number	file_name	global_root	parent_file	field_count	pointer_in	pointer_out	record_count	is_dinum	piks	piks_method	piks_confidence	piks_evidence	piks_secondary	volatility	sensitivity	portability	volume	subdomain	status
+2	PATIENT	^DPT		200	120	18	5000	0	P	H-01	certain	file#=2		high	high	low	high	demographic	extracted
+4	INSTITUTION	^DIC(4)		120	200	8	200	0	I	H-04	certain	file#=4		low	low	high	low	directory	extracted
+430	ACCOUNTS RECEIVABLE	^PRCA(430)		86	12	8	1500	0	K	H-29	high	knowledge-class	P	medium	medium	medium	medium	billing	extracted

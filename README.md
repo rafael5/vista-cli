@@ -26,12 +26,34 @@ Phase 1 — MVP. See `docs/vista-cli-planning.md § 13` for the roadmap.
 
 ## Install
 
+**macOS** — via Homebrew (handles the Python interpreter for you):
+
+```bash
+brew tap rafael5/vista https://github.com/rafael5/vista-cli
+brew install vista
+vista init     # fetch the snapshot data bundle
+```
+
+**Linux** — self-contained tarball, no Python required on the target:
+
+```bash
+curl -LO https://github.com/rafael5/vista-cli/releases/latest/download/vista-linux-x86_64.tar.xz
+tar -xJf vista-linux-x86_64.tar.xz
+sudo ln -s "$PWD/vista/vista" /usr/local/bin/vista
+vista init     # fetch the snapshot data bundle
+```
+
+**From source** (developers contributing to vista-cli):
+
 ```bash
 git clone <this repo>
 cd vista-cli
 make install
 vista doctor
 ```
+
+See [docs/vista-cli-packaging.md](docs/vista-cli-packaging.md) for
+the full distribution matrix.
 
 ## Configure
 

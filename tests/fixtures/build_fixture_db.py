@@ -85,6 +85,15 @@ def build() -> None:
     )
     cur.execute(
         """
+        CREATE TABLE doc_file_refs (
+            doc_id INTEGER NOT NULL,
+            file_number TEXT NOT NULL,
+            PRIMARY KEY(doc_id, file_number)
+        )
+        """
+    )
+    cur.execute(
+        """
         CREATE TABLE doc_sections (
             section_id INTEGER PRIMARY KEY,
             doc_id INTEGER NOT NULL,
@@ -202,7 +211,8 @@ def build() -> None:
             (1, "PRCA45PT", "EN", "EN^PRCA45PT"),
             (2, "PRCA45PT", "", "PRCA45PT"),
             (3, "PRCA45PT", "EN", "EN^PRCA45PT"),
-            (1, "PRCAACT", "", "PRCAACT"),
+            # PRCAACT intentionally not in doc_routines so coverage
+            # reports a 1/2 documented split for the AR package fixture.
         ],
     )
     cur.executemany(
@@ -212,6 +222,14 @@ def build() -> None:
     cur.executemany(
         "INSERT INTO doc_options VALUES (?, ?)",
         [(3, "PRCA PURGE EXEMPT BILL FILES")],
+    )
+    cur.executemany(
+        "INSERT INTO doc_rpcs VALUES (?, ?)",
+        [(1, "PRCA AR LIST"), (3, "PRCA AR LIST")],
+    )
+    cur.executemany(
+        "INSERT INTO doc_file_refs VALUES (?, ?)",
+        [(1, "430"), (2, "430"), (3, "430")],
     )
 
     # A few sections; one of them mentions PRCA45PT in its body
@@ -263,6 +281,22 @@ def build() -> None:
                 "Use the PRCA PURGE EXEMPT BILL FILES menu option.",
             ),
         ],
+    )
+
+    # FTS5 mirror of doc_sections (heading + body) — production schema.
+    cur.execute(
+        """
+        CREATE VIRTUAL TABLE doc_sections_fts USING fts5(
+            heading, body,
+            content='doc_sections',
+            content_rowid='section_id',
+            tokenize='porter unicode61'
+        )
+        """
+    )
+    cur.execute(
+        "INSERT INTO doc_sections_fts(rowid, heading, body) "
+        "SELECT section_id, heading, body FROM doc_sections"
     )
 
     conn.commit()

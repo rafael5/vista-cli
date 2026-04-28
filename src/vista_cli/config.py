@@ -22,6 +22,7 @@ class Config:
     vista_m_host: Path
     doc_db: Path
     doc_publish_dir: Path
+    cache_db: Path
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "Config":
@@ -56,6 +57,12 @@ class Config:
                 env.get(
                     "VISTA_DOC_PUBLISH",
                     str(home / "data/vista-docs/publish"),
+                )
+            ),
+            cache_db=Path(
+                env.get(
+                    "VISTA_CACHE_DB",
+                    str(home / "data/vista/joined.db"),
                 )
             ),
         )

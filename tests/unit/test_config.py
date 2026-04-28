@@ -28,6 +28,14 @@ class TestConfig:
         cfg = Config.from_env({"VISTA_DOC_PUBLISH": "/tmp/publish"})
         assert cfg.doc_publish_dir == Path("/tmp/publish")
 
+    def test_env_var_overrides_cache_db(self):
+        cfg = Config.from_env({"VISTA_CACHE_DB": "/tmp/joined.db"})
+        assert cfg.cache_db == Path("/tmp/joined.db")
+
+    def test_default_cache_db(self):
+        cfg = Config.from_env({})
+        assert cfg.cache_db == Path.home() / "data/vista/joined.db"
+
     def test_unrelated_env_vars_ignored(self):
         cfg = Config.from_env({"PATH": "/usr/bin", "HOME": "/home/x"})
         assert cfg.code_model_dir == Path.home() / "vista-meta/vista/export/code-model"

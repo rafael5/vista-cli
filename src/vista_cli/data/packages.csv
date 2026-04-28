@@ -1,0 +1,17 @@
+directory,ns,app_code
+Accounts Receivable,PRCA,PRCA
+Outpatient Pharmacy,PSO,PSO
+Inpatient Pharmacy,PSI,PSJ
+Pharmacy Data Management,PSS,PSS
+Kernel,XU,XU
+Kernel Toolkit,XT,XT
+FileMan,DI,DI
+Lab Service,LR,LR
+Radiology Nuclear Medicine,RA,RA
+Order Entry Results Reporting,OR,OR
+Registration,DG,DG
+Integrated Billing,IB,IB
+Dietetics,FH,FH
+Allergy,GMRA,GMRA
+Imaging,MAG,MAG
+Text Integration Utilities,TIU,TIU

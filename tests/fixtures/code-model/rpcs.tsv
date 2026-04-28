@@ -1,2 +1,4 @@
-ien	name	tag	routine	return_type	availability	inactive	version
-1	ORWPS COVER	COVER	PSOORRX	array	PUBLIC	0	1.0
+ien	name	tag	routine	return_type	availability	inactive	version	package
+1	ORWPS COVER	COVER	PSOORRX	array	PUBLIC	0	1.0	Outpatient Pharmacy
+2	PRCA AR LIST	LIST	PRCAACT	array	PUBLIC	0	1.0	Accounts Receivable
+3	PRCA AR DETAIL	DETAIL	PRCAACT	array	PUBLIC	0	1.0	Accounts Receivable

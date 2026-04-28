@@ -983,8 +983,12 @@ This already covers ~80% of daily use.
 - 10× speedup on hot queries.
 - `vista risk`, `vista layers`, `vista matrix` (the §11 features).
 
-### Phase 4 — VSCode + MCP (open-ended)
+### Phase 4 — Portable distribution + VSCode + MCP (open-ended)
 
+- **Portable snapshot bundle** + `vista init` / `vista fetch` /
+  `vista snapshot` so a clean machine can go from `pip install` to
+  working queries in two commands. Detailed design in
+  [vista-cli-portable-distribution.md](vista-cli-portable-distribution.md).
 - VSCode extension calls `vista` as a subprocess for hover,
   CodeLens, package sidebar (extends the
   [extension internals roadmap](vscode-extension-internals.md)).

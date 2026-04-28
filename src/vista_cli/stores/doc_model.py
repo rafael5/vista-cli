@@ -100,6 +100,50 @@ class DocModelStore:
         cur = self._conn_().execute(sql, (option_name,))
         return [dict(r) for r in cur.fetchall()]
 
+    def docs_by_global(
+        self, global_name: str, *, latest_only: bool = True
+    ) -> list[Row]:
+        sql = """
+            SELECT DISTINCT d.doc_id, d.rel_path, d.title, d.doc_type,
+                   d.app_code, d.pkg_ns, d.patch_id
+            FROM documents d
+            JOIN doc_globals g ON g.doc_id = d.doc_id
+            WHERE g.global_name = ?
+        """
+        if latest_only:
+            sql += " AND d.is_latest = 1"
+        sql += " ORDER BY d.quality_score DESC"
+        cur = self._conn_().execute(sql, (global_name,))
+        return [dict(r) for r in cur.fetchall()]
+
+    def docs_by_file(
+        self, file_number: str, *, latest_only: bool = True
+    ) -> list[Row]:
+        sql = """
+            SELECT DISTINCT d.doc_id, d.rel_path, d.title, d.doc_type,
+                   d.app_code, d.pkg_ns, d.patch_id
+            FROM documents d
+            JOIN doc_file_refs f ON f.doc_id = d.doc_id
+            WHERE f.file_number = ?
+        """
+        if latest_only:
+            sql += " AND d.is_latest = 1"
+        sql += " ORDER BY d.quality_score DESC"
+        cur = self._conn_().execute(sql, (str(file_number),))
+        return [dict(r) for r in cur.fetchall()]
+
+    def docs_by_patch(self, patch_id: str) -> list[Row]:
+        """Documents bound to a specific patch_id (no latest filter)."""
+        sql = """
+            SELECT doc_id, rel_path, title, doc_type, app_code, pkg_ns,
+                   patch_id, patch_ver, pub_date
+            FROM documents
+            WHERE patch_id = ?
+            ORDER BY pub_date DESC
+        """
+        cur = self._conn_().execute(sql, (patch_id,))
+        return [dict(r) for r in cur.fetchall()]
+
     # ── section lookup ─────────────────────────────────────────────
 
     def sections_mentioning_routine(self, routine: str) -> list[Row]:
@@ -109,8 +153,8 @@ class DocModelStore:
         search across all section bodies, use search_sections().
         """
         sql = """
-            SELECT s.section_id, s.doc_id, s.heading, s.anchor, s.level,
-                   s.word_count, d.title AS doc_title, d.rel_path
+            SELECT DISTINCT s.section_id, s.doc_id, s.heading, s.anchor,
+                   s.level, s.word_count, d.title AS doc_title, d.rel_path
             FROM doc_sections s
             JOIN documents d ON d.doc_id = s.doc_id
             JOIN doc_routines r ON r.doc_id = d.doc_id
@@ -118,4 +162,38 @@ class DocModelStore:
             ORDER BY d.quality_score DESC, s.seq
         """
         cur = self._conn_().execute(sql, (routine,))
+        return [dict(r) for r in cur.fetchall()]
+
+    def search_sections(
+        self,
+        query: str,
+        *,
+        app_code: str | None = None,
+        latest_only: bool = True,
+        limit: int = 50,
+    ) -> list[Row]:
+        """Free-text search over section headings + bodies via FTS5.
+
+        `query` is passed through to FTS5 MATCH. Callers should pre-quote
+        phrase queries themselves.
+        """
+        sql = """
+            SELECT s.section_id, s.doc_id, s.heading, s.anchor, s.level,
+                   s.word_count, d.title AS doc_title, d.rel_path,
+                   d.app_code, d.doc_type, d.is_latest, d.quality_score,
+                   snippet(doc_sections_fts, 1, '[', ']', '…', 12) AS snippet
+            FROM doc_sections_fts
+            JOIN doc_sections s ON s.section_id = doc_sections_fts.rowid
+            JOIN documents d ON d.doc_id = s.doc_id
+            WHERE doc_sections_fts MATCH ?
+        """
+        params: list[Any] = [query]
+        if app_code:
+            sql += " AND d.app_code = ?"
+            params.append(app_code)
+        if latest_only:
+            sql += " AND d.is_latest = 1"
+        sql += " ORDER BY d.quality_score DESC, rank LIMIT ?"
+        params.append(limit)
+        cur = self._conn_().execute(sql, params)
         return [dict(r) for r in cur.fetchall()]

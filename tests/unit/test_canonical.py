@@ -6,8 +6,10 @@ vista-docs names them by VDL app_code ("PSO") AND VistA namespace
 the bidirectional map.
 """
 
+import vista_cli.canonical as canonical_mod
 from vista_cli.canonical import (
     PackageId,
+    all_packages,
     classify_ref,
     resolve_package,
 )
@@ -91,3 +93,33 @@ class TestPackageId:
         pkg = PackageId(directory="Kernel", ns="XU", app_code="XU")
         assert "Kernel" in repr(pkg)
         assert "XU" in repr(pkg)
+
+
+class TestPackageMapCsv:
+    def test_csv_override_via_env(self, tmp_path, monkeypatch):
+        custom = tmp_path / "packages.csv"
+        custom.write_text(
+            "directory,ns,app_code\nFancy Package,FNCY,FANCY\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("VISTA_PACKAGES_CSV", str(custom))
+        # Bust the cache so the override takes effect
+        canonical_mod._CACHED = None  # type: ignore[attr-defined]
+        canonical_mod._CACHED_KEY = None  # type: ignore[attr-defined]
+        try:
+            pkg = resolve_package("FNCY")
+            assert pkg is not None
+            assert pkg.directory == "Fancy Package"
+            assert pkg.app_code == "FANCY"
+            # Default packages no longer present
+            assert resolve_package("PSO") is None
+        finally:
+            canonical_mod._CACHED = None  # type: ignore[attr-defined]
+            canonical_mod._CACHED_KEY = None  # type: ignore[attr-defined]
+
+    def test_default_csv_loads_known_packages(self):
+        # Sanity-check that the shipped CSV is intact.
+        names = {p.directory for p in all_packages()}
+        assert {"Accounts Receivable", "Outpatient Pharmacy", "Kernel"}.issubset(
+            names
+        )
