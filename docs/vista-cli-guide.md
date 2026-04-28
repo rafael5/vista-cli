@@ -1,13 +1,17 @@
 # vista-cli — Comprehensive Guide
 
 A user and operator guide for **`vista`**, the unified CLI that joins
-[vista-meta](../../vista-meta/) (the VistA code model) with vista-docs
-(the VA Document Library frontmatter database) into one queryable
-surface.
+[vista-meta](https://github.com/rafael5/vista-meta) (the VistA code
+model) with [vista-docs](https://github.com/rafael5/vista-docs) (the
+VA Document Library frontmatter database) into one queryable surface.
 
 This document is for people who want to *use* vista-cli effectively.
 For the design rationale and roadmap behind it, see
-[vista-cli-planning.md](vista-cli-planning.md).
+[vista-cli-planning.md](vista-cli-planning.md). For installation
+quick-start and project context, see the
+[README](../README.md). For the snapshot bundle / `init` /
+`fetch` machinery, see
+[vista-cli-portable-distribution.md](vista-cli-portable-distribution.md).
 
 ---
 
@@ -168,6 +172,8 @@ src/vista_cli/
   cli.py             # Click subcommand wiring (one add_command per cmd)
   config.py          # path resolution from env vars
   canonical.py       # package id: directory ↔ ns ↔ app_code
+  snapshot.py        # bundle create / verify / info / install
+  fetch.py           # snapshot download + atomic swap
   data/
     packages.csv     # ships in-tree; canonical map (16 packages)
   stores/
@@ -176,7 +182,8 @@ src/vista_cli/
     doc_model.py     # read-only SQLite handle
     joined.py        # cross-store joins (coverage, links, neighbors)
     cache.py         # materialized SQLite cache build/read
-  commands/          # one Click command per file (22 commands total)
+    code_view.py     # cache-aware proxy in front of CodeModelStore
+  commands/          # one Click command per file (24 commands total)
   format/
     json_out.py      # deterministic JSON (sorted keys, 2-space indent)
     tsv_out.py       # tab-separated with tab/newline escaping
@@ -189,6 +196,12 @@ A few implementation choices worth knowing about as a user:
   needs and caches them per-process; per-column indexes give O(1)
   lookups. Cold start is on the order of 200–400 ms; warm queries
   are sub-100 ms.
+- **Cache-backed hot paths.** Once `vista build-cache` has produced
+  `joined.db`, the routine / links / patch / neighbors commands
+  consult it transparently via a `CodeModelView` proxy — sub-100 ms
+  even on cold shells. `--no-cache` at the top level forces the
+  TSV path for debugging or side-by-side comparisons; a stale cache
+  is auto-detected and ignored rather than served.
 - **Doc store failures are non-fatal.** If `frontmatter.db` is
   missing or unreadable, `vista routine X` still returns code facts;
   it just records `docs_error` in the JSON output. Code-only
@@ -201,20 +214,54 @@ A few implementation choices worth knowing about as a user:
   `^RTN`, RPC name, option name, file number, patch ID — `vista`
   classifies each by shape (`canonical.classify_ref`) and routes
   accordingly.
-- **Single dependency.** `click >= 8.1`. No DuckDB, Polars, or
-  FastAPI; just stdlib + sqlite3.
+- **Single runtime dependency.** `click >= 8.1`. No DuckDB, Polars,
+  or FastAPI; just stdlib + sqlite3 for the actual query path.
 - **Python 3.12+.** `make install` runs `uv sync --extra dev`;
-  `make check` runs ruff + mypy + pytest with 80% coverage gate.
+  `make check` runs ruff + mypy + pytest. End users never see this:
+  Homebrew handles Python on macOS, the PyInstaller tarball bundles
+  it on Linux.
 
 ---
 
 ## 2. Installing and configuring
 
+Three install paths, depending on how you'll use vista-cli. The
+project's full distribution rationale is in
+[vista-cli-packaging.md](vista-cli-packaging.md).
+
+**macOS — Homebrew (recommended for end users):**
+
 ```bash
-git clone <repo> ~/projects/vista-cli
+brew tap rafael5/vista https://github.com/rafael5/vista-cli
+brew install vista
+vista init        # download + install the snapshot data bundle
+vista doctor      # verify
+```
+
+Homebrew installs `python@3.12` as a transitive dependency; you
+never see pip or a venv.
+
+**Linux — self-contained PyInstaller tarball:**
+
+```bash
+curl -LO https://github.com/rafael5/vista-cli/releases/latest/download/vista-linux-x86_64.tar.xz
+tar -xJf vista-linux-x86_64.tar.xz
+sudo ln -s "$PWD/vista/vista" /usr/local/bin/vista
+vista init
+vista doctor
+```
+
+The Linux tarball is built against glibc 2.17 (manylinux2014) and
+bundles its own Python interpreter — no Python required on the
+target. An `aarch64` build ships alongside the `x86_64` one.
+
+**From source (contributors):**
+
+```bash
+git clone https://github.com/rafael5/vista-cli ~/projects/vista-cli
 cd ~/projects/vista-cli
-make install      # uv sync --extra dev + pre-commit hooks + fixtures
-vista doctor      # verify both data stores are visible
+make install      # uv sync --extra dev + pre-commit + fixtures
+vista doctor
 ```
 
 **`vista doctor`** is the first command to run after install — and
@@ -239,10 +286,11 @@ in the project's CLAUDE.md.
 
 ## 3. Command reference
 
-22 commands, grouped by what they do. Every command supports
-`--help`. Every command that produces tabular data supports
-`--format md|json|tsv` (a few flat commands do `md|json` only); see
-§4.1 for when to use which.
+24 top-level commands (plus the four `vista snapshot` subcommands),
+grouped by what they do. Every command supports `--help`. Every
+command that produces tabular data supports `--format md|json|tsv`
+(a few flat commands do `md|json` only); see §4.1 for when to use
+which.
 
 ### 3.1 Inspecting one artifact
 
@@ -407,20 +455,56 @@ vista ask "how does AR purge exempt bills end-to-end?" \
 
 #### `vista doctor`
 
-Health check on the five data inputs from §1.3. Run it after
-install and any time something stops working. Warns (non-fatal)
-if the cache is missing or stale.
+Health check on the five data inputs from §1.3 plus the cache and
+installed snapshot version. Run it after install and any time
+something stops working. Warns (non-fatal) if the cache is missing
+or stale.
+
+#### `vista init [--from PATH] [--snapshot VERSION] [--data-dir PATH] [--force]`
+
+Idempotent bootstrap. Detects whether usable data already exists
+(env vars set or default paths populated); if so, prints what's
+there and exits cleanly without overwriting. Otherwise it fetches
+a snapshot bundle (or installs from `--from PATH` for air-gapped
+machines) and runs `build-cache` against the freshly-installed
+tree. The two-command "from clean machine to working query" path:
+`brew install` → `vista init`.
+
+#### `vista fetch [--from PATH] [--snapshot VERSION] [--list]`
+
+Lower-level than `init` — just download + verify + atomically
+install a snapshot bundle. `--list` queries the GitHub Releases API
+and prints available snapshots. `--from PATH` skips the download
+and installs from a local tarball (the air-gapped consumer path).
+Old install is preserved at `<data-dir>.bak/` for one-deep rollback.
+
+#### `vista snapshot {create | verify | info | install}`
+
+The producer + verification side of the snapshot pipeline. Mostly
+run by CI; a developer touches it only when reproducing a bundle
+locally or auditing one.
+
+- `vista snapshot create --out bundle.tar.xz [--snapshot-version vX.Y]`
+  packs the configured stores into a portable bundle with an
+  embedded `snapshot.json` manifest + SHA-256 sidecar.
+- `vista snapshot verify PATH` validates structure, recomputes the
+  embedded SHA-256s against the actual archive contents.
+- `vista snapshot info PATH` prints the embedded manifest without
+  extracting anything.
+- `vista snapshot install PATH` is `vista fetch --from PATH` minus
+  the download step.
 
 #### `vista build-cache [--out PATH]`
 
 Materializes the joined manifest from vista-meta + vista-docs into
 a single SQLite file at `cache_db` (default
-`~/data/vista/joined.db`). Pre-computes the §6.2 join tables
+`~/data/vista/joined.db`). Pre-computes the join tables
 (`routine_doc_refs`, `rpc_doc_refs`, `option_doc_refs`,
 `file_doc_refs`, `patch_routine_refs`, `package_canonical`) plus
 mirrors of the most-queried code-model TSVs. Run after every
-vista-meta bake or vista-docs ingest. Reports row counts per table
-and elapsed time.
+vista-meta bake or vista-docs ingest — `vista init` does this for
+you on snapshot install. Reports row counts per table and elapsed
+time.
 
 ---
 
