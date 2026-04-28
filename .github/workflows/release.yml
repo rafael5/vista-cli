@@ -96,7 +96,13 @@ jobs:
           mkdir pypi-upload
           cp artifacts/pypi-dist/*.whl pypi-upload/ 2>/dev/null || true
           cp artifacts/pypi-dist/*.tar.gz pypi-upload/ 2>/dev/null || true
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      # Gated by the `PUBLISH_TO_PYPI` repo variable.
+      # Default off — flip to `true` in
+      # Settings → Variables → Actions once trusted publishing is
+      # configured at pypi.org/manage/account/publishing.
+      - name: publish to PyPI
+        if: vars.PUBLISH_TO_PYPI == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: pypi-upload/
           skip-existing: true
