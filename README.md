@@ -155,13 +155,40 @@ rationale.
 git clone https://github.com/rafael5/vista-cli
 cd vista-cli
 make install      # uv sync --extra dev + pre-commit + test fixtures
-make check        # lint + mypy + tests (217 tests, ruff + mypy clean)
+make check        # lint + mypy + tests (245 tests, ruff + mypy clean)
 ln -sf "$PWD/.venv/bin/vista" ~/.local/bin/vista   # optional — put on $PATH
 
 # uninstall
 rm -f ~/.local/bin/vista
 rm -rf ~/projects/vista-cli          # or wherever the clone lives
 ```
+
+### Shell completion (optional, applies to all install paths)
+
+`vista routine PRC<TAB>` expands against the live code-model;
+`vista package <TAB>`, `vista rpc <TAB>`, `vista option <TAB>`, and
+`vista file <TAB>` work the same way. Pick your shell and run the
+matching one-liner once:
+
+```bash
+# bash
+_VISTA_COMPLETE=bash_source vista > ~/.local/share/vista-completion.bash
+echo 'source ~/.local/share/vista-completion.bash' >> ~/.bashrc
+
+# zsh
+_VISTA_COMPLETE=zsh_source vista > ~/.local/share/vista-completion.zsh
+echo 'source ~/.local/share/vista-completion.zsh' >> ~/.zshrc
+
+# fish
+_VISTA_COMPLETE=fish_source vista > ~/.config/fish/completions/vista.fish
+```
+
+Reload your shell. Completion reads from the same data sources as
+the queries themselves and silently returns nothing if the data
+isn't installed yet — never crashes the shell.
+
+To remove: delete the generated file and the matching `source` line
+from your shell rc.
 
 ## Documentation
 
