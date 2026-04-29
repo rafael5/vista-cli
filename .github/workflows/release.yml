@@ -74,3 +74,71 @@ jobs:
         with:
           files: release/*
           generate_release_notes: true
+
+  bump-formula:
+    # After the release exists, point Formula/vista.rb at the new tag's
+    # source archive so `brew upgrade vista` picks it up automatically.
+    # Pushes back to main with [skip ci] so this doesn't loop.
+    name: bump homebrew formula
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute archive url + sha256
+        id: archive
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+          SHA=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+          echo "tag=$TAG"  >> "$GITHUB_OUTPUT"
+          echo "url=$URL"  >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA"  >> "$GITHUB_OUTPUT"
+
+      - name: Patch Formula/vista.rb
+        run: |
+          python3 <<'PY'
+          import os, pathlib, re
+          tag = os.environ["TAG"]
+          url = os.environ["URL"]
+          sha = os.environ["SHA"]
+          p = pathlib.Path("Formula/vista.rb")
+          s = p.read_text()
+          s = re.sub(
+              r'url "https://github\.com/rafael5/vista-cli/archive/refs/tags/v[0-9.]+\.tar\.gz"',
+              f'url "{url}"',
+              s,
+              count=1,
+          )
+          # The formula's own sha256 is the first one in the file;
+          # the `click` resource's sha256 comes after and must not change.
+          s = re.sub(
+              r'sha256 "[0-9a-f]{64}"',
+              f'sha256 "{sha}"',
+              s,
+              count=1,
+          )
+          p.write_text(s)
+          print(f"Patched Formula/vista.rb → {tag}")
+          PY
+        env:
+          TAG: ${{ steps.archive.outputs.tag }}
+          URL: ${{ steps.archive.outputs.url }}
+          SHA: ${{ steps.archive.outputs.sha }}
+
+      - name: Commit + push
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Formula/vista.rb
+          if git diff --cached --quiet; then
+            echo "Formula already at $TAG — nothing to commit."
+            exit 0
+          fi
+          git commit -m "Formula/vista.rb: auto-bump to $TAG [skip ci]"
+          git push origin main
+        env:
+          TAG: ${{ steps.archive.outputs.tag }}
