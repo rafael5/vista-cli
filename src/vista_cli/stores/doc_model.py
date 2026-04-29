@@ -174,9 +174,15 @@ class DocModelStore:
     ) -> list[Row]:
         """Free-text search over section headings + bodies via FTS5.
 
-        `query` is passed through to FTS5 MATCH. Callers should pre-quote
-        phrase queries themselves.
+        `query` is normalized for FTS5 MATCH so that punctuation in user
+        input (e.g. ``sign-on``) is treated as literal text. Callers can
+        opt out by writing an explicit phrase query — any double-quote
+        in the input is treated as a power-user escape hatch and the
+        query is passed through to FTS5 verbatim.
         """
+        normalized = normalize_fts_query(query)
+        if not normalized:
+            return []
         sql = """
             SELECT s.section_id, s.doc_id, s.heading, s.anchor, s.level,
                    s.word_count, d.title AS doc_title, d.rel_path,
@@ -187,7 +193,7 @@ class DocModelStore:
             JOIN documents d ON d.doc_id = s.doc_id
             WHERE doc_sections_fts MATCH ?
         """
-        params: list[Any] = [query]
+        params: list[Any] = [normalized]
         if app_code:
             sql += " AND d.app_code = ?"
             params.append(app_code)
@@ -197,3 +203,23 @@ class DocModelStore:
         params.append(limit)
         cur = self._conn_().execute(sql, params)
         return [dict(r) for r in cur.fetchall()]
+
+
+def normalize_fts_query(query: str) -> str:
+    """Make a user-supplied query safe for FTS5 MATCH.
+
+    FTS5 treats characters like ``-``, ``:``, ``(``, ``)`` and ``*`` as
+    operators. A bare ``sign-on`` parses as ``sign`` then a column-qualified
+    ``-on``, which raises ``no such column: on``. We sidestep that by wrapping
+    each whitespace-separated token in a phrase ("..."), which forces FTS5
+    to tokenize the contents and match literally.
+
+    If the query already contains a double-quote, assume the caller wrote a
+    deliberate FTS5 expression and pass it through unchanged.
+    """
+    q = query.strip()
+    if not q:
+        return ""
+    if '"' in q:
+        return q
+    return " ".join(f'"{token}"' for token in q.split())

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from vista_cli.stores.doc_model import DocModelStore
+from vista_cli.stores.doc_model import DocModelStore, normalize_fts_query
 
 FIXTURE_DB = Path(__file__).parent.parent / "fixtures" / "frontmatter.db"
 
@@ -101,3 +101,38 @@ class TestSearchSections:
         assert all(h["is_latest"] == 1 for h in hits_latest)
         hits_all = store.search_sections("installing", latest_only=False)
         assert any(h["is_latest"] == 0 for h in hits_all)
+
+    def test_search_with_hyphen_does_not_crash(self, store):
+        # Regression: bare `sign-on` used to be parsed by FTS5 as
+        # `sign` AND `-on`, raising "no such column: on".
+        store.search_sections("sign-on")  # must not raise
+
+    def test_search_empty_query_returns_empty(self, store):
+        assert store.search_sections("") == []
+        assert store.search_sections("   ") == []
+
+
+class TestNormalizeFtsQuery:
+    def test_empty_returns_empty(self):
+        assert normalize_fts_query("") == ""
+        assert normalize_fts_query("   ") == ""
+
+    def test_bareword_wrapped_as_phrase(self):
+        assert normalize_fts_query("kernel") == '"kernel"'
+
+    def test_multiple_words_joined_with_implicit_and(self):
+        assert normalize_fts_query("kernel install") == '"kernel" "install"'
+
+    def test_hyphen_protected_from_fts5_operator_parsing(self):
+        assert normalize_fts_query("sign-on") == '"sign-on"'
+
+    def test_colon_protected_from_column_qualifier(self):
+        assert normalize_fts_query("foo:bar") == '"foo:bar"'
+
+    def test_existing_quotes_pass_through(self):
+        # Power-user escape hatch: any " in the input means "trust me".
+        assert normalize_fts_query('"exact phrase"') == '"exact phrase"'
+        assert normalize_fts_query('foo OR "bar baz"') == 'foo OR "bar baz"'
+
+    def test_collapses_inner_whitespace(self):
+        assert normalize_fts_query("  kernel    install  ") == '"kernel" "install"'
