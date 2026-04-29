@@ -105,11 +105,6 @@ def init_cmd(
         return
 
     click.echo(f"installed {manifest['snapshot_version']} → {data_dir}")
-    click.echo("")
-    click.echo("hint: point env vars at the new install:")
-    click.echo(f"  export VISTA_CODE_MODEL={data_dir}/code-model")
-    click.echo(f"  export VISTA_DATA_MODEL={data_dir}/data-model")
-    click.echo(f"  export VISTA_DOC_DB={data_dir}/frontmatter.db")
 
     # Build cache against the freshly-installed paths.
     code_model = data_dir / "code-model"
