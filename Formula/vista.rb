@@ -24,8 +24,8 @@ class Vista < Formula
 
   desc "Joined VistA code + documentation queries (vista-cli)"
   homepage "https://github.com/rafael5/vista-cli"
-  url "https://github.com/rafael5/vista-cli/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "74f784c7e3f9b0782cd246396ece160a80fa161aad3d7e9bed8e4e6e33584945"
+  url "https://github.com/rafael5/vista-cli/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "9cca1fabf2c6abf7c9dbeb68a68a27556cd8469b317d1f8a702db66ed028bfa6"
   license "MIT"
 
   depends_on "python@3.12"
