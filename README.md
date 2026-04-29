@@ -1,103 +1,149 @@
 # vista-cli
 
-A unified command-line tool for querying VistA — its code, its data
-dictionary, and 40 years of accumulated documentation — through one
-interface.
+**A comprehensive, deterministic knowledge base of the entire VistA
+architecture** — every routine, every FileMan file, every RPC and
+option, every KIDS patch, every documentation manual, and every
+interlinkage between them — exposed through one fast offline
+command-line interface.
 
-## What is VistA?
-
-**VistA** (Veterans Health Information Systems and Technology
-Architecture) is the U.S. Department of Veterans Affairs' electronic
-health record system: a hospital information system written in MUMPS
-that has been in continuous production use for over forty years.
-
-Concretely, the open-source release looks like this:
-
-| Surface | Scale |
-|---|---|
-| Routines (`.m` source files) | ~39,500 |
-| Packages (Pharmacy, Lab, Order Entry, …) | ~150 |
-| FileMan files (the data dictionary) | ~8,000 |
-| Tags (function entry-points) | ~290,000 |
-| Manuals on the VA Document Library | ~2,800 |
-| Indexed manual sections | ~138,700 |
-| Routine references inside manuals | ~23,700 |
-
-Code lives in 8-character `.m` files with no module system; behavior
-is documented in DOCX/PDF manuals organized by audience. There is
-no native bidirectional index — a routine doesn't know which manual
-documents it; a manual section doesn't link to the routines that
-implement it.
-
-`vista` closes that loop:
+For developers writing or enhancing VistA code, vista-cli is the
+*"answer this question right now"* tool. While you're working on a
+routine you need to know — continuously — what calls into it, what
+FileMan files it touches, what manual sections describe it, what
+patches have revised it, what other routines write the same globals,
+what RPCs it backs, what menu options expose it, and what XINDEX
+findings it carries. **vista-cli answers each in under a second, in
+your terminal, without leaving your editor and without an internet
+connection.**
 
 ```bash
 vista routine PRCA45PT     # code facts + every doc that mentions it
 vista doc "agent cashier"  # doc hits + every routine each section names
-vista links PSO            # all interlinks for a reference, dense
+vista links PRCA45PT       # every interlink for one routine, dense
 vista neighbors ORWPCE     # graph walk: callees, siblings, same-data routines
 vista risk ORM             # composite 0–100 risk score for a routine
-
-vista list packages        # the catalog: ~150 packages with rolled-up counts
-vista tree                 # hierarchical browser; pass a package name to expand
+vista tree                 # hierarchical browser over the entire corpus
+vista list packages        # the catalog: ~150 packages, rolled-up counts
 ```
+
+## Deterministic, not generative
+
+**vista-cli does not run an LLM. It does not guess, summarise, or
+approximate.** Same query, same bytes out, every time. Every answer
+comes from indexed TSV files and a SQLite database — that's the
+whole runtime path. No API calls. No tokens. No hallucinations. No
+chat round-trips.
+
+LLMs **were** used to build the upstream pipelines that produce the
+data: extracting tags from MUMPS source, detecting feature shapes,
+classifying every FileMan file under the PIKS taxonomy, parsing 40
+years of DOCX/PDF manuals into structured sections, recognising
+entity references inside that prose, and cross-linking routines
+with the manual sections that describe them. That work already
+happened, in the [vista-meta](https://github.com/rafael5/vista-meta)
+and [vista-docs](https://github.com/rafael5/vista-docs) projects.
+
+**Its output — 19 deterministic TSVs (~1.0 M rows), 5 data-model
+TSVs, and a SQLite frontmatter database with 138,711 FTS5-indexed
+manual sections — is the only thing vista-cli reads at query time.**
+The reasoning is frozen. The artifacts are content-addressed,
+SHA-256-verified, regenerable, and version-stamped to the upstream
+commit they came from. Sub-100 ms cache-warm queries against the
+entire 40-year VistA corpus, completely offline.
+
+## The VistA developer experience
+
+Three tools, three layers, one workflow:
+
+| Tool | Layer | Scope |
+|---|---|---|
+| **m-cli** | M-language formatter / linter / test runner | One MUMPS file at a time — knows the language, nothing else |
+| **vista-meta VSCode extension** | In-editor routine browser | One routine at a time — sidebar with tags, callers, callees, cross-package call edges |
+| **vista-cli** *(this project)* | Cross-product knowledge base | The entire corpus — joins code, data dictionary, and 40 years of manuals |
+
+These compose. `m fmt` formats the file you just edited; the VSCode
+extension shows you what calls into it as you read it; vista-cli
+answers "…and which user-manual section talks about this routine,
+what files it writes, what patches have touched it, what RPCs back
+it, what other routines share its globals."
+
+**vista-cli is the integration point of the three.** It reads from
+the same data sources that vista-meta produces and the VSCode
+extension consumes, adds the documentation half (vista-docs), and
+exposes the joins neither of the others can. When a question
+requires looking across more than one of those layers — which is
+*continuously*, in real development — vista-cli is where you go.
+
+## What's in the knowledge base
+
+Every entity vista-meta and vista-docs have ever extracted from
+VistA, and every relationship they've inferred, indexed and joined:
+
+| Surface | Scale |
+|---|---:|
+| Routines (`.m` source files) | ~39,500 |
+| Tags (function entry-points) | ~290,000 |
+| Call edges (caller → callee) | ~241,000 |
+| Global usages (routine → `^GLOBAL`) | ~78,000 |
+| FileMan files (the data dictionary) | ~8,000 |
+| Field-to-PIKS pointer rows | ~70,000 |
+| Packages (Pharmacy, Lab, Order Entry, …) | ~150 |
+| RPCs | ~4,500 |
+| Menu options | ~13,000 |
+| Protocols | ~6,500 |
+| KIDS patches (line-2 patch lists per routine) | ~30,000 distinct |
+| XINDEX findings (Style/Practice/Errors) | ~7,000 |
+| Manuals on the VA Document Library | ~2,800 |
+| Indexed manual sections (FTS5) | ~138,700 |
+| Routine references inside manuals | ~23,700 |
+| RPC references inside manuals | ~600 |
+| Option references inside manuals | ~23,200 |
+
+**Plus every interlinkage** — routine ↔ docs that mention it,
+FileMan file ↔ routines that touch its global, RPC ↔ doc section ↔
+backing routine, patch ↔ every routine it revised, option ↔ entry
+routine ↔ user-manual section that describes the menu, global ↔
+FileMan file the global is the storage of, package ↔ canonical
+namespace ↔ VDL app-code.
+
+**Total live query surface: ~338 MB**, packed and shipped as a
+single ~60 MB `.tar.xz` snapshot bundle. The bundle includes a
+`snapshot.json` manifest with SHA-256s and provenance back to the
+upstream commits, so any installed copy of vista-cli can prove
+which VistA-M release and which VDL snapshot it's serving. `vista
+doctor` reports the version; `vista fetch` rolls a new one in
+atomically with `.bak/` rollback.
 
 ## Where the data comes from
 
 vista-cli is the integrator. The data preparation — downloading,
-parsing, classifying, indexing — lives in two upstream projects, each
-with its own pipeline and release cadence:
+parsing, classifying, cross-linking — lives in two upstream
+projects, each with its own pipeline and release cadence. **Both
+projects produce deterministic, regenerable, content-addressed
+artifacts** — same VistA-M release in, same byte-identical TSVs out;
+same VDL snapshot in, same SQLite schema out.
 
 | Project | Repo | What it produces |
 |---|---|---|
-| **vista-meta** | [github.com/rafael5/vista-meta](https://github.com/rafael5/vista-meta) | Bakes a running VistA-on-YottaDB into deterministic TSVs: routines, calls, globals, FileMan files, RPCs, options, protocols, XINDEX findings, KIDS patches, and the PIKS classification of every global. |
-| **vista-docs** | [github.com/rafael5/vista-docs](https://github.com/rafael5/vista-docs) | Crawls the VA Document Library, downloads DOCX/PDF, parses heading trees, extracts entities (routines, RPCs, options, file numbers, security keys), and lands everything in a SQLite database (`frontmatter.db`) with an FTS5 index over section bodies. |
+| **vista-meta** | [github.com/rafael5/vista-meta](https://github.com/rafael5/vista-meta) | Bakes a running VistA-on-YottaDB into 19 code-model TSVs + 5 data-model TSVs: routines, calls, globals, FileMan files, RPCs, options, protocols, XINDEX findings, KIDS patches, and the PIKS classification of every global. |
+| **vista-docs** | [github.com/rafael5/vista-docs](https://github.com/rafael5/vista-docs) | Crawls the VA Document Library, downloads DOCX/PDF, parses heading trees, extracts entities (routines, RPCs, options, file numbers, security keys), and lands everything in `frontmatter.db` with FTS5 over section bodies. |
 
-Both projects produce **deterministic, regenerable, content-addressed
-artifacts** — same VistA-M release in, same byte-identical TSVs out;
-same VDL snapshot in, same SQLite schema out. That determinism is
-what makes vista-cli's joins reproducible.
-
-Related projects in the broader ecosystem (not data sources for
-vista-cli, but co-evolving with it):
+Adjacent in the ecosystem (not data sources for vista-cli, but
+co-evolving with it):
 
 - **[tree-sitter-m](https://github.com/rafael5/tree-sitter-m)** —
-  M-language tree-sitter parser; underpins the VSCode extensions and
-  any future `m fmt` / `m lint` / `m test` workflows.
+  M-language tree-sitter parser; underpins the VSCode extensions
+  and the planned `m fmt` / `m lint` / `m test` workflow.
 - **[m-standard](https://github.com/rafael5/m-standard)** —
   M-language reference reconciling AnnoStd / YottaDB / IRIS dialects.
 - **[vista-docs-api](https://github.com/rafael5/vista-docs-api)** —
   FastAPI read-only HTTP server over the same `frontmatter.db`.
 
-## What's integrated into vista-cli
-
-The data the CLI reads at query time:
-
-| Source | Files | Records | Raw size |
-|---|---:|---:|---:|
-| code-model TSVs (vista-meta) | 19 | ~1.0 M | 42 MB |
-| data-model TSVs + CSV (vista-meta) | 5 | ~88 K | 13 MB |
-| `frontmatter.db` SQLite (vista-docs) | 1 | 138,711 sections + 8 entity tables | 283 MB |
-| canonical package map (vista-cli) | 1 | 16 packages | <1 KB |
-
-**Total live query surface: ~338 MB**, packed and shipped as a
-single ~60 MB `.tar.xz` snapshot bundle (the FTS5 index dominates the
-compressed size). The bundle includes a `snapshot.json` manifest with
-SHA-256s and provenance back to the upstream commits, so any
-installed copy of vista-cli can prove which VistA-M release and which
-VDL snapshot it's serving. `vista doctor` reports the snapshot
-version; `vista fetch` rolls a new one in atomically with `.bak/`
-rollback.
-
-The optional source mirror (39,500 `.m` files, ~7 GB) and the
-published markdown tree (~2 GB) are *not* required for queries —
-they're only used by `vista where` to print `path:line` and as
-read-targets when the user wants to open the original docs. They
-ship as separate, opt-in release artifacts.
-
 For background, the full feature list, per-command reference, and
 worked-example workflows, see the
-**[vista-cli guide](docs/vista-cli-guide.md)**.
+**[vista-cli guide](docs/vista-cli-guide.md)**. New users should
+start with the
+**[getting-started tour](docs/vista-cli-getting-started.md)**.
 
 ## Install
 
@@ -158,7 +204,7 @@ rationale.
 git clone https://github.com/rafael5/vista-cli
 cd vista-cli
 make install      # uv sync --extra dev + pre-commit + test fixtures
-make check        # lint + mypy + tests (245 tests, ruff + mypy clean)
+make check        # lint + mypy + tests
 ln -sf "$PWD/.venv/bin/vista" ~/.local/bin/vista   # optional — put on $PATH
 
 # uninstall
@@ -195,9 +241,12 @@ from your shell rc.
 
 ## Documentation
 
+- **[getting-started tour](docs/vista-cli-getting-started.md)** —
+  command-by-command walk-through with real captured input/output.
+  Start here.
 - **[vista-cli guide](docs/vista-cli-guide.md)** — comprehensive
   user/operator guide: every command, every flag, worked workflow
-  recipes.
+  recipes, troubleshooting matrix.
 - **[planning + design](docs/vista-cli-planning.md)** —
   authoritative for scope, phasing, and the interlinkage taxonomy.
 - **[snapshot bundle spec](docs/vista-cli-portable-distribution.md)** —
@@ -207,7 +256,8 @@ from your shell rc.
 
 ## Status
 
-Phases 1–4 of the planning doc are implemented. 217 tests passing,
-ruff + mypy clean. First public release tagged
-[v0.1.0](https://github.com/rafael5/vista-cli/releases/tag/v0.1.0)
-on 2026-04-28.
+Phases 1–4 of the planning doc are implemented, plus v0.2.0-bound
+polish (typo suggestions, shell completion, `vista list`, `vista
+tree`). Latest release tagged
+[v0.1.1](https://github.com/rafael5/vista-cli/releases/tag/v0.1.1).
+ruff + mypy clean.
