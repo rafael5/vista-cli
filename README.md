@@ -37,6 +37,9 @@ vista doc "agent cashier"  # doc hits + every routine each section names
 vista links PSO            # all interlinks for a reference, dense
 vista neighbors ORWPCE     # graph walk: callees, siblings, same-data routines
 vista risk ORM             # composite 0–100 risk score for a routine
+
+vista list packages        # the catalog: ~150 packages with rolled-up counts
+vista tree                 # hierarchical browser; pass a package name to expand
 ```
 
 ## Where the data comes from

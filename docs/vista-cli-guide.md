@@ -30,6 +30,7 @@ quick-start and project context, see the
   - [3.4 Reporting and analysis](#34-reporting-and-analysis)
   - [3.5 AI bundling](#35-ai-bundling)
   - [3.6 Operations](#36-operations)
+  - [3.7 Discovery — catalogue & hierarchy](#37-discovery--catalogue--hierarchy)
 - [4. Using vista-cli effectively](#4-using-vista-cli-effectively)
   - [4.1 The four output formats](#41-the-four-output-formats)
   - [4.2 Workflow recipes](#42-workflow-recipes)
@@ -328,8 +329,8 @@ finds the directory-cased package name.
 
 ## 3. Command reference
 
-24 top-level commands (plus the four `vista snapshot` subcommands),
-grouped by what they do. Every command supports `--help`. Every
+26 top-level commands (plus four `vista snapshot` subcommands and
+six `vista list` subcommands), grouped by what they do. Every command supports `--help`. Every
 command that produces tabular data supports `--format md|json|tsv`
 (a few flat commands do `md|json` only); see §4.1 for when to use
 which.
@@ -338,6 +339,10 @@ which.
 
 These are the "tell me about X" commands. One required argument
 per command, output joins both stores by default.
+
+> **Don't know where to start?** Use `vista list packages` to see
+> the catalog (or `vista tree` for a hierarchical view) — see §3.7
+> below.
 
 #### `vista routine RTN` — the anchor command
 
@@ -547,6 +552,77 @@ mirrors of the most-queried code-model TSVs. Run after every
 vista-meta bake or vista-docs ingest — `vista init` does this for
 you on snapshot install. Reports row counts per table and elapsed
 time.
+
+### 3.7 Discovery — catalogue & hierarchy
+
+The "I don't know what to look at" entry points. Use these when you
+have no name in mind yet.
+
+#### `vista list <kind> [--pkg PKG] [--limit N]`
+
+Flat enumeration of a kind. Six subcommands:
+
+```bash
+vista list packages                   # all packages, ranked by routine count
+vista list routines --pkg PSO         # routines in Outpatient Pharmacy, by in-degree
+vista list rpcs --pkg OR              # RPCs in Order Entry
+vista list options --pkg PSO          # options in Outpatient Pharmacy
+vista list files                      # FileMan files, ranked by record count
+vista list globals --routine PSOORNE  # globals touched by one routine
+vista list globals                    # corpus-wide globals, aggregated
+```
+
+Every subcommand supports `--format md|json|tsv` and `--limit N`
+(default 100–200 depending on kind). Pipe-friendly:
+
+```bash
+vista list routines --pkg PSO --format tsv | awk '$4 > 50' | head
+vista list packages --format json | jq '.[] | select(.rpcs > 0) | .package'
+```
+
+#### `vista tree [REF] [--depth N] [--kind ...]`
+
+Hierarchical browser. With no argument, prints every package at
+depth 1 with its rolled-up counts — the "what's in this VistA"
+view:
+
+```
+$ vista tree
+# Packages
+150 packages.
+Pass a package name as an argument to expand: `vista tree PSO`.
+- Outpatient Pharmacy  ns=PSO app=PSO  (421 routines, 12 rpcs, 38 options)
+- Kernel               ns=XU  app=XU   (...)
+...
+```
+
+With a package argument, expands that package into routines (top 25
+by in-degree), RPCs, and options:
+
+```
+$ vista tree PSO
+# Outpatient Pharmacy [ns=PSO, app=PSO]  (421 routines, 12 rpcs, 38 options)
+
+## routines (top by in-degree)
+- `PSOORNE` (124 lines · in=12 · out=8)
+- `PSORXVR1` (89 lines · in=9 · out=4)
+...
+
+## rpcs
+- `PSO LM ALLERGY` → `ALLERGY^PSOLMALL`
+...
+
+## options
+- `PSO MAINTENANCE` (M) Pharmacy maintenance menu
+...
+```
+
+`--depth 2` walks one more level (each routine → its top callees);
+`--kind routines|rpcs|options` filters which children appear;
+`--top N` caps the count per kind (default 25).
+
+`--format json` returns a structured object — handy for an MCP
+server or VSCode tree-view.
 
 ---
 

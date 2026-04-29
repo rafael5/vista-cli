@@ -19,6 +19,7 @@ from vista_cli.commands.global_ import global_cmd
 from vista_cli.commands.init import init_cmd
 from vista_cli.commands.layers import layers
 from vista_cli.commands.links import links
+from vista_cli.commands.list_ import list_cmd
 from vista_cli.commands.matrix import matrix
 from vista_cli.commands.neighbors import neighbors
 from vista_cli.commands.option import option
@@ -30,6 +31,7 @@ from vista_cli.commands.rpc import rpc
 from vista_cli.commands.search import search
 from vista_cli.commands.snapshot import snapshot
 from vista_cli.commands.timeline import timeline
+from vista_cli.commands.tree import tree
 from vista_cli.commands.where import where
 from vista_cli.config import Config
 
@@ -61,6 +63,7 @@ main.add_command(global_cmd)
 main.add_command(init_cmd, name="init")
 main.add_command(layers)
 main.add_command(links)
+main.add_command(list_cmd, name="list")
 main.add_command(matrix)
 main.add_command(neighbors)
 main.add_command(option)
@@ -72,6 +75,7 @@ main.add_command(rpc)
 main.add_command(search)
 main.add_command(snapshot)
 main.add_command(timeline)
+main.add_command(tree)
 main.add_command(where)
 
 
