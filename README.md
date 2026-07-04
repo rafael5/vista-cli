@@ -1,5 +1,7 @@
 # vista-cli
 
+> ⚠️ **ARCHIVED 2026-07-04** — retired in the `~/projects` consolidation. Its vista-docs v1 upstream was deleted (vdocs supersedes); the query role is now served by `vdocs ask` / vdocs-cli, and **vista-info-hub** (VistA-Copilot org) is this tool's Go fusion-client rewrite. Read-only; no further development.
+
 **A comprehensive, deterministic knowledge base of the entire VistA
 architecture** — every routine, every FileMan file, every RPC and
 option, every KIDS patch, every documentation manual, and every

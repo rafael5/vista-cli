@@ -1,3 +1,65 @@
+---
+# Machine-readable project descriptor — schema v1 (2026-05-05).
+name: vista-cli
+kind: [cli, integrator]
+status: archived                            # retired 2026-07-04 — role served by vdocs ask/vdocs-cli; Go rewrite = vista-info-hub
+languages: [python]
+
+runtime:
+  needs:
+    - python>=3.10
+    - uv
+    - "vista-meta TSVs at ~/vista-meta/vista/export/code-model/"
+    - "vista-docs SQLite at ~/data/vista-docs/state/frontmatter.db"
+  optional: []
+  excludes: []
+
+distribution:
+  pypi: null
+  github: rafael5/vista-cli
+  homebrew: "Homebrew formula in this repo"
+  pyinstaller: "Linux --onedir tarball with SHA-256 manifest"
+
+location: ~/projects/vista-cli
+
+exposes:
+  cli:
+    - vista                                 # routine, package, file, rpc, option, patch, global, where, search, doc, doctor, links, neighbors, coverage, timeline, context, ask, risk, layers, matrix, snapshot, fetch, init
+  capabilities:
+    - "joins vista-meta TSVs with vista-docs SQLite"
+    - "build-cache materialises joined.db (Phase 3)"
+    - "snapshot create/verify/install/fetch (Phase 4 — portable distribution)"
+    - "shell completion + typo suggestions"
+  formats_produced:
+    - "joined.db (cache; rebuilt from inputs)"
+    - "snapshot tar.xz + SHA-256 manifest"
+
+consumes:
+  formats: ["tsv (vista-meta code-model)", "sqlite (vista-docs frontmatter.db)"]
+  services: []
+
+companions:
+  - project: vista-meta
+    relation: "primary input — vista-cli reads vista-meta's code-model TSVs (read-only, never writes)"
+  - project: vista-docs
+    relation: "primary input — vista-cli reads vista-docs' frontmatter SQLite (read-only, never writes)"
+  - project: m-cli
+    relation: "orthogonal — m-cli is the language layer; vista-cli is the VistA-specific integrator"
+  - project: py-kids-vc
+    relation: "complementary — vista-cli queries `patch`, kids-vc decomposes/assembles them"
+
+incompatibilities:
+  - "Read-only over its inputs — never writes to vista-meta exports or the vista-docs DB."
+  - "Snapshot path requires `--no-cache` if you want to bypass the materialised joined.db."
+  - "VistA-specific — not portable to other M codebases."
+
+docs:
+  primary: README.md
+  planning: docs/vista-cli-planning.md
+  user_guide: docs/vista-cli-guide.md
+  packaging: docs/vista-cli-packaging.md
+---
+
 # Claude Project Context — vista-cli
 
 ## What this project is
