@@ -52,7 +52,7 @@ jobs:
       - name: Smoke test
         run: ./dist/vista/vista --version
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-x86_64
           path: vista-linux-x86_64.tar.xz
